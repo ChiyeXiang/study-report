@@ -1396,219 +1396,222 @@ ${expDetails}
     "topActions": [{"action": "具体行动", "timeline": "建议时间", "expectedImpact": "预期效果"}]
   },
   "conclusion": "100-150字结语，自然引出后续咨询，但不生硬，提及代金券可用于预约荔智惠专业顾问"
-}`;
-      },\`
+  }
+`;
+      },
+
     },
 
-    family: {
-      systemPrompt: `你是高端家庭教育战略顾问，专注于为高净值家庭提供全周期国际化教育路径规划。
-你的任务是基于家庭档案数据，生成一份《NextGen家族教育战略智能报告》的完整结构化JSON数据。
-
-核心原则：
-1. 这是一份家庭决策报告，不是学生申请报告
-2. 重点关注：最优路径选择、钱和时间怎么投、亲子目标对齐
-3. 语言风格：理性、专业、有据可依，避免空洞建议
-4. 每一节文字内容要有实质信息量，字数要求严格遵守
-5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
-
-      buildPrompt: (data) => {
-        const mainProblem = data.mainProblem || '未填写';
-        const childStage = data.childStage || '未填写';
-        const schoolTypeF = data.schoolTypeF || '未填写';
-        const intlPathDecision = data.intlPathDecision || '未填写';
-        const applyTiming = data.applyTiming || '未填写';
-        const academicPerformance = data.academicPerformance || '未填写';
-        const childStrengths = Array.isArray(data.childStrengths) ? data.childStrengths.join('、') : (data.childStrengths || '未填写');
-        const childWeaknesses = Array.isArray(data.childWeaknesses) ? data.childWeaknesses.join('、') : (data.childWeaknesses || '未填写');
-        const directionClarity = data.directionClarity || '未填写';
-        const childState = data.childState || '未填写';
-        const familyValues = Array.isArray(data.familyValues) ? data.familyValues.join('、') : (data.familyValues || '未填写');
-        const firstPriority = data.firstPriority || '未填写';
-        const hopeChildBecome = data.hopeChildBecome || '未填写';
-        const educationRole = data.educationRole || '未填写';
-        const preferCountries = Array.isArray(data.preferCountries) ? data.preferCountries.join('、') : (data.preferCountries || '未填写');
-        const countryPreferenceReason = Array.isArray(data.countryPreferenceReason) ? data.countryPreferenceReason.join('、') : (data.countryPreferenceReason || '未填写');
-        const preferredEnvironment = data.preferredEnvironment || '未填写';
-        const pathRhythm = data.pathRhythm || '未填写';
-        const budgetAttitude = data.budgetAttitude || '未填写';
-        const investFocus = Array.isArray(data.investFocus) ? data.investFocus.join('、') : (data.investFocus || '未填写');
-        const familyWorries = Array.isArray(data.familyWorries) ? data.familyWorries.join('、') : (data.familyWorries || '未填写');
-        const earlyPlanningAttitude = data.earlyPlanningAttitude || '未填写';
-        const parentChildAlignment = data.parentChildAlignment || '未填写';
-        const gapAreas = Array.isArray(data.gapAreas) ? data.gapAreas.join('、') : (data.gapAreas || '未填写');
-        const hardestDecision = data.hardestDecision || '未填写';
-        const hopeSystemDecide = data.hopeSystemDecide || '未填写';
-        const newThingReaction = data.newThingReaction || '未填写';
-        const learningEnvironment = data.learningEnvironment || '未填写';
-        const learningStyle = data.learningStyle || '未填写';
-        const developmentRhythm = data.developmentRhythm || '未填写';
-        const postGradTendency = data.postGradTendency || '未填写';
-        const reportFocus = Array.isArray(data.reportFocus) ? data.reportFocus.join('、') : (data.reportFocus || '未填写');
-        const mostCriticalThing = data.mostCriticalThing || '未填写';
-
-        return `请基于以下家庭档案，生成《NextGen家族教育战略智能报告》完整结构化数据：
-
-===== 家庭档案 =====
-
-【模块 A：家庭当前所处阶段】
-当前最想解决的问题：${mainProblem}
-孩子当前所处阶段：${childStage}
-孩子当前学校类型：${schoolTypeF}
-国际化路径判断：${intlPathDecision}
-计划进入申请阶段的时间：${applyTiming}
-
-【模块 B：孩子当前的基础状态】
-整体学业表现：${academicPerformance}
-孩子主要优势：${childStrengths}
-孩子主要短板：${childWeaknesses}
-对未来方向清晰度：${directionClarity}
-孩子当前发展状态：${childState}
-
-【模块 C：家庭教育目标与价值排序】
-家庭最看重什么：${familyValues}
-第一优先级：${firstPriority}
-希望孩子成为哪类人：${hopeChildBecome}
-教育最重要的作用：${educationRole}
-
-【模块 D：国家/地区与路径偏好】
-优先考虑的国家/地区：${preferCountries}
-偏好来源：${countryPreferenceReason}
-偏好的生活/学习环境：${preferredEnvironment}
-可接受的路径节奏：${pathRhythm}
-
-【模块 E：家庭投入方式与预算观】
-教育投入态度：${budgetAttitude}
-愿意优先投入的方向：${investFocus}
-家庭主要担忧：${familyWorries}
-对早规划的态度：${earlyPlanningAttitude}
-
-【模块 F：亲子目标一致性与决策矛盾】
-亲子目标一致情况：${parentChildAlignment}
-分歧类型（如有）：${gapAreas}
-最难做的决策：${hardestDecision}
-希望系统帮助做哪类决定：${hopeSystemDecide}
-
-【模块 G：孩子的学习方式与长期发展倾向】
-面对新事物的反应：${newThingReaction}
-适应的学习环境：${learningEnvironment}
-学习方式：${learningStyle}
-发展节奏倾向：${developmentRhythm}
-毕业后倾向：${postGradTendency}
-
-【模块 H：报告目标】
-报告重点关注：${reportFocus}
-最希望解决的一件事：${mostCriticalThing}
-
-===================
-
-请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
-（所有文字内容必须是中文，字数要求请严格遵守）：
-{
-  "familyGoalRadar": {
-    "rankOriented": 数字(0-100，名校导向程度),
-    "valueOriented": 数字(0-100，性价比导向程度),
-    "stabilityOriented": 数字(0-100，稳定性导向程度),
-    "globalOriented": 数字(0-100，国际化导向程度),
-    "careerOriented": 数字(0-100，就业导向程度),
-    "growthOriented": 数字(0-100，长期成长导向程度)
-  },
-  "familySummary": "150-200字家庭战略摘要，一句话概括最适合这类家庭的国际化路径",
-  "decisionStateAnalysis": "300-350字，写：家庭目前处于什么判断阶段；决策核心矛盾是什么；当前最大的盲区是什么",
-  "studentFamilyAlignment": {
-    "alignmentRadar": {
-      "countryChoice": 数字(0-100，国家选择一致度),
-      "schoolTier": 数字(0-100，学校层级一致度),
-      "majorDirection": 数字(0-100，专业方向一致度),
-      "investmentExpect": 数字(0-100，投入预期一致度),
-      "riskPreference": 数字(0-100，风险偏好一致度)
-    },
-    "alignmentText": "350-450字，写：学生特点；家长期待；匹配点；偏差点；哪些偏差需要尽快统一"
-  },
-  "countryPathComparison": [
-    {
-      "country": "国家名",
-      "costScore": 数字(0-100，性价比，越高性价比越好),
-      "thresholdScore": 数字(0-100，门槛可达度，越高越容易进入),
-      "stabilityScore": 数字(0-100，结果稳定性),
-      "globalScore": 数字(0-100，国际化程度),
-      "careerScore": 数字(0-100，职业连接度),
-      "recommendation": "强烈推荐|推荐|可考虑|不建议",
-      "estimatedCost": "预估4年总费用",
-      "pros": ["优势1", "优势2"],
-      "cons": ["劣势1"]
-    }
-  ],
-  "countryPathText": "450-550字，写：哪些国家更适合；哪些路径不建议盲目投入；成本、结果、稳定性如何比较；哪些路径更符合当前家庭画像",
-  "resourceAllocation": {
-    "radarData": {
-      "academicInvest": 数字(0-100，建议学业投入优先级),
-      "testInvest": 数字(0-100，建议标化投入优先级),
-      "backgroundInvest": 数字(0-100，建议背景提升投入优先级),
-      "globalProjectInvest": 数字(0-100，建议国际项目投入优先级),
-      "longTermPlanInvest": 数字(0-100，建议长期规划投入优先级)
-    },
-    "allocationText": "350-450字，写：钱应该优先投向哪里；时间应该优先放在哪里；哪些投入性价比低；哪些投入会直接影响结果",
-    "budgetMilestones": [{"phase": "阶段", "item": "投入项目", "amount": "建议金额范围", "priority": "high|medium|low"}]
-  },
-  "conclusion": "100-150字决策建议结语，自然引出荔智惠专业顾问咨询，提及代金券可用"
-}),`
-    },`
-
-    career: {
-      systemPrompt: `你是国际顶级生涯规划顾问，整合了职业心理学、人才测评和就业市场分析专业知识。
-你的任务是基于学生档案数据，生成一份《Life-Career Strategy人生生涯全规划报告》的完整结构化JSON数据。
-
-核心原则：
-1. 这是一份真正的长期发展诊断报告，不是兴趣测试结果汇总
-2. 重点关注：能力现状、方向匹配、路径选择、能力缺口、时间规划
-3. 判断要基于学生的真实答案，有逻辑支撑，有依据的推断
-4. 文字内容要直接、有价值，不要用废话和套话
-5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
-
-      buildPrompt: (data) => `请基于以下学生档案，生成《Life-Career Strategy人生生涯全规划报告》完整结构化数据：
-
-学生档案：
-${JSON.stringify(data, null, 2)}
-
-请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
-{
-  "growthRadar": {
-    "academicPotential": 数字(0-100，学术潜力),
-    "practiceOrientation": 数字(0-100，实践导向),
-    "analyticalAbility": 数字(0-100，分析能力),
-    "communication": 数字(0-100，表达与沟通),
-    "leadership": 数字(0-100，领导力倾向),
-    "globalMindset": 数字(0-100，国际化发展倾向)
-  },
-  "abilityTags": [{"tag": "能力标签", "weight": 数字(0-100，权重), "type": "strength|potential|gap"}],
-  "longTermSummary": "150-200字长期发展摘要，一句话给出最核心的长期方向判断",
-  "growthProfileText": "300-350字，写：当前的优势结构；当前的能力特征；当前的发展状态",
-  "interestDirectionText": "350-450字，写：哪些方向更匹配；为什么匹配；哪些方向需要谨慎；当前兴趣和现实条件是否一致",
-  "careerPathTree": {
-    "currentStage": "当前阶段描述（1句话）",
-    "branches": [
-      {
-        "pathName": "路径名称",
-        "fitScore": 数字(0-100),
-        "studyPath": "推荐学业路径",
-        "majorPath": "推荐专业方向",
-        "careerTarget": "最终职业目标",
-        "keyMilestones": ["里程碑1", "里程碑2", "里程碑3"]
-      }
-    ]
-  },
-  "academicCareerText": "450-550字（核心部分），写：哪类专业更适合；哪类职业方向更顺；为什么会做出这样的判断；哪些方向可以先探索后收敛",
-  "capabilityGaps": [
-    {"capability": "能力项名称", "currentLevel": 数字(0-100), "requiredLevel": 数字(0-100), "urgency": "high|medium|low", "whyImportant": "50字内为什么重要", "howToImprove": "50字内如何提升"}
-  ],
-  "capabilityGapText": "350-450字，写：缺什么；为什么重要；不补会带来什么问题；哪些能力对长期竞争力是关键门槛",
-  "fiveYearTimeline": [
-    {"phase": "当前阶段|1年内|2-3年内|3-5年关键节点", "focus": "阶段核心焦点", "keyActions": ["行动1", "行动2"], "expectedOutcome": "预期成果"}
-  ],
-  "fiveYearText": "300-400字，按时间轴表达：当前阶段；下一阶段；中长期重点"
-}`,
-    },
   };
+
+//     family: {
+//       systemPrompt: `你是高端家庭教育战略顾问，专注于为高净值家庭提供全周期国际化教育路径规划。
+// 你的任务是基于家庭档案数据，生成一份《NextGen家族教育战略智能报告》的完整结构化JSON数据。
+// 
+// 核心原则：
+// 1. 这是一份家庭决策报告，不是学生申请报告
+// 2. 重点关注：最优路径选择、钱和时间怎么投、亲子目标对齐
+// 3. 语言风格：理性、专业、有据可依，避免空洞建议
+// 4. 每一节文字内容要有实质信息量，字数要求严格遵守
+// 5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
+// 
+//       buildPrompt: (data) => {
+//         const mainProblem = data.mainProblem || '未填写';
+//         const childStage = data.childStage || '未填写';
+//         const schoolTypeF = data.schoolTypeF || '未填写';
+//         const intlPathDecision = data.intlPathDecision || '未填写';
+//         const applyTiming = data.applyTiming || '未填写';
+//         const academicPerformance = data.academicPerformance || '未填写';
+//         const childStrengths = Array.isArray(data.childStrengths) ? data.childStrengths.join('、') : (data.childStrengths || '未填写');
+//         const childWeaknesses = Array.isArray(data.childWeaknesses) ? data.childWeaknesses.join('、') : (data.childWeaknesses || '未填写');
+//         const directionClarity = data.directionClarity || '未填写';
+//         const childState = data.childState || '未填写';
+//         const familyValues = Array.isArray(data.familyValues) ? data.familyValues.join('、') : (data.familyValues || '未填写');
+//         const firstPriority = data.firstPriority || '未填写';
+//         const hopeChildBecome = data.hopeChildBecome || '未填写';
+//         const educationRole = data.educationRole || '未填写';
+//         const preferCountries = Array.isArray(data.preferCountries) ? data.preferCountries.join('、') : (data.preferCountries || '未填写');
+//         const countryPreferenceReason = Array.isArray(data.countryPreferenceReason) ? data.countryPreferenceReason.join('、') : (data.countryPreferenceReason || '未填写');
+//         const preferredEnvironment = data.preferredEnvironment || '未填写';
+//         const pathRhythm = data.pathRhythm || '未填写';
+//         const budgetAttitude = data.budgetAttitude || '未填写';
+//         const investFocus = Array.isArray(data.investFocus) ? data.investFocus.join('、') : (data.investFocus || '未填写');
+//         const familyWorries = Array.isArray(data.familyWorries) ? data.familyWorries.join('、') : (data.familyWorries || '未填写');
+//         const earlyPlanningAttitude = data.earlyPlanningAttitude || '未填写';
+//         const parentChildAlignment = data.parentChildAlignment || '未填写';
+//         const gapAreas = Array.isArray(data.gapAreas) ? data.gapAreas.join('、') : (data.gapAreas || '未填写');
+//         const hardestDecision = data.hardestDecision || '未填写';
+//         const hopeSystemDecide = data.hopeSystemDecide || '未填写';
+//         const newThingReaction = data.newThingReaction || '未填写';
+//         const learningEnvironment = data.learningEnvironment || '未填写';
+//         const learningStyle = data.learningStyle || '未填写';
+//         const developmentRhythm = data.developmentRhythm || '未填写';
+//         const postGradTendency = data.postGradTendency || '未填写';
+//         const reportFocus = Array.isArray(data.reportFocus) ? data.reportFocus.join('、') : (data.reportFocus || '未填写');
+//         const mostCriticalThing = data.mostCriticalThing || '未填写';
+// 
+//         return `请基于以下家庭档案，生成《NextGen家族教育战略智能报告》完整结构化数据：
+// 
+// ===== 家庭档案 =====
+// 
+// 【模块 A：家庭当前所处阶段】
+// 当前最想解决的问题：${mainProblem}
+// 孩子当前所处阶段：${childStage}
+// 孩子当前学校类型：${schoolTypeF}
+// 国际化路径判断：${intlPathDecision}
+// 计划进入申请阶段的时间：${applyTiming}
+// 
+// 【模块 B：孩子当前的基础状态】
+// 整体学业表现：${academicPerformance}
+// 孩子主要优势：${childStrengths}
+// 孩子主要短板：${childWeaknesses}
+// 对未来方向清晰度：${directionClarity}
+// 孩子当前发展状态：${childState}
+// 
+// 【模块 C：家庭教育目标与价值排序】
+// 家庭最看重什么：${familyValues}
+// 第一优先级：${firstPriority}
+// 希望孩子成为哪类人：${hopeChildBecome}
+// 教育最重要的作用：${educationRole}
+// 
+// 【模块 D：国家/地区与路径偏好】
+// 优先考虑的国家/地区：${preferCountries}
+// 偏好来源：${countryPreferenceReason}
+// 偏好的生活/学习环境：${preferredEnvironment}
+// 可接受的路径节奏：${pathRhythm}
+// 
+// 【模块 E：家庭投入方式与预算观】
+// 教育投入态度：${budgetAttitude}
+// 愿意优先投入的方向：${investFocus}
+// 家庭主要担忧：${familyWorries}
+// 对早规划的态度：${earlyPlanningAttitude}
+// 
+// 【模块 F：亲子目标一致性与决策矛盾】
+// 亲子目标一致情况：${parentChildAlignment}
+// 分歧类型（如有）：${gapAreas}
+// 最难做的决策：${hardestDecision}
+// 希望系统帮助做哪类决定：${hopeSystemDecide}
+// 
+// 【模块 G：孩子的学习方式与长期发展倾向】
+// 面对新事物的反应：${newThingReaction}
+// 适应的学习环境：${learningEnvironment}
+// 学习方式：${learningStyle}
+// 发展节奏倾向：${developmentRhythm}
+// 毕业后倾向：${postGradTendency}
+// 
+// 【模块 H：报告目标】
+// 报告重点关注：${reportFocus}
+// 最希望解决的一件事：${mostCriticalThing}
+// 
+// ===================
+// 
+// 请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
+// （所有文字内容必须是中文，字数要求请严格遵守）：
+// {
+//   "familyGoalRadar": {
+//     "rankOriented": 数字(0-100，名校导向程度),
+//     "valueOriented": 数字(0-100，性价比导向程度),
+//     "stabilityOriented": 数字(0-100，稳定性导向程度),
+//     "globalOriented": 数字(0-100，国际化导向程度),
+//     "careerOriented": 数字(0-100，就业导向程度),
+//     "growthOriented": 数字(0-100，长期成长导向程度)
+//   },
+//   "familySummary": "150-200字家庭战略摘要，一句话概括最适合这类家庭的国际化路径",
+//   "decisionStateAnalysis": "300-350字，写：家庭目前处于什么判断阶段；决策核心矛盾是什么；当前最大的盲区是什么",
+//   "studentFamilyAlignment": {
+//     "alignmentRadar": {
+//       "countryChoice": 数字(0-100，国家选择一致度),
+//       "schoolTier": 数字(0-100，学校层级一致度),
+//       "majorDirection": 数字(0-100，专业方向一致度),
+//       "investmentExpect": 数字(0-100，投入预期一致度),
+//       "riskPreference": 数字(0-100，风险偏好一致度)
+//     },
+//     "alignmentText": "350-450字，写：学生特点；家长期待；匹配点；偏差点；哪些偏差需要尽快统一"
+//   },
+//   "countryPathComparison": [
+//     {
+//       "country": "国家名",
+//       "costScore": 数字(0-100，性价比，越高性价比越好),
+//       "thresholdScore": 数字(0-100，门槛可达度，越高越容易进入),
+//       "stabilityScore": 数字(0-100，结果稳定性),
+//       "globalScore": 数字(0-100，国际化程度),
+//       "careerScore": 数字(0-100，职业连接度),
+//       "recommendation": "强烈推荐|推荐|可考虑|不建议",
+//       "estimatedCost": "预估4年总费用",
+//       "pros": ["优势1", "优势2"],
+//       "cons": ["劣势1"]
+//     }
+//   ],
+//   "countryPathText": "450-550字，写：哪些国家更适合；哪些路径不建议盲目投入；成本、结果、稳定性如何比较；哪些路径更符合当前家庭画像",
+//   "resourceAllocation": {
+//     "radarData": {
+//       "academicInvest": 数字(0-100，建议学业投入优先级),
+//       "testInvest": 数字(0-100，建议标化投入优先级),
+//       "backgroundInvest": 数字(0-100，建议背景提升投入优先级),
+//       "globalProjectInvest": 数字(0-100，建议国际项目投入优先级),
+//       "longTermPlanInvest": 数字(0-100，建议长期规划投入优先级)
+//     },
+//     "allocationText": "350-450字，写：钱应该优先投向哪里；时间应该优先放在哪里；哪些投入性价比低；哪些投入会直接影响结果",
+//     "budgetMilestones": [{"phase": "阶段", "item": "投入项目", "amount": "建议金额范围", "priority": "high|medium|low"}]
+//   },
+//   "conclusion": "100-150字决策建议结语，自然引出荔智惠专业顾问咨询，提及代金券可用"
+//   },
+// 
+//     career: {
+//       systemPrompt: `你是国际顶级生涯规划顾问，整合了职业心理学、人才测评和就业市场分析专业知识。
+// 你的任务是基于学生档案数据，生成一份《Life-Career Strategy人生生涯全规划报告》的完整结构化JSON数据。
+// 
+// 核心原则：
+// 1. 这是一份真正的长期发展诊断报告，不是兴趣测试结果汇总
+// 2. 重点关注：能力现状、方向匹配、路径选择、能力缺口、时间规划
+// 3. 判断要基于学生的真实答案，有逻辑支撑，有依据的推断
+// 4. 文字内容要直接、有价值，不要用废话和套话
+// 5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
+// 
+//       buildPrompt: (data) => `请基于以下学生档案，生成《Life-Career Strategy人生生涯全规划报告》完整结构化数据：
+// 
+// 学生档案：
+// ${JSON.stringify(data, null, 2)}
+// 
+// 请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
+// {
+//   "growthRadar": {
+//     "academicPotential": 数字(0-100，学术潜力),
+//     "practiceOrientation": 数字(0-100，实践导向),
+//     "analyticalAbility": 数字(0-100，分析能力),
+//     "communication": 数字(0-100，表达与沟通),
+//     "leadership": 数字(0-100，领导力倾向),
+//     "globalMindset": 数字(0-100，国际化发展倾向)
+//   },
+//   "abilityTags": [{"tag": "能力标签", "weight": 数字(0-100，权重), "type": "strength|potential|gap"}],
+//   "longTermSummary": "150-200字长期发展摘要，一句话给出最核心的长期方向判断",
+//   "growthProfileText": "300-350字，写：当前的优势结构；当前的能力特征；当前的发展状态",
+//   "interestDirectionText": "350-450字，写：哪些方向更匹配；为什么匹配；哪些方向需要谨慎；当前兴趣和现实条件是否一致",
+//   "careerPathTree": {
+//     "currentStage": "当前阶段描述（1句话）",
+//     "branches": [
+//       {
+//         "pathName": "路径名称",
+//         "fitScore": 数字(0-100),
+//         "studyPath": "推荐学业路径",
+//         "majorPath": "推荐专业方向",
+//         "careerTarget": "最终职业目标",
+//         "keyMilestones": ["里程碑1", "里程碑2", "里程碑3"]
+//       }
+//     ]
+//   },
+//   "academicCareerText": "450-550字（核心部分），写：哪类专业更适合；哪类职业方向更顺；为什么会做出这样的判断；哪些方向可以先探索后收敛",
+//   "capabilityGaps": [
+//     {"capability": "能力项名称", "currentLevel": 数字(0-100), "requiredLevel": 数字(0-100), "urgency": "high|medium|low", "whyImportant": "50字内为什么重要", "howToImprove": "50字内如何提升"}
+//   ],
+//   "capabilityGapText": "350-450字，写：缺什么；为什么重要；不补会带来什么问题；哪些能力对长期竞争力是关键门槛",
+//   "fiveYearTimeline": [
+//     {"phase": "当前阶段|1年内|2-3年内|3-5年关键节点", "focus": "阶段核心焦点", "keyActions": ["行动1", "行动2"], "expectedOutcome": "预期成果"}
+//   ],
+//   "fiveYearText": "300-400字，按时间轴表达：当前阶段；下一阶段；中长期重点"
+// }`,
+//     },
+//   };
 
   // ---- API Call ----
   async function callQwen(systemPrompt, userPrompt) {
