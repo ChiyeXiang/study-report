@@ -1177,72 +1177,494 @@ const APP = (() => {
     // 报告三：Life-Career Strategy 人生生涯全规划
     // ===========================================================
     career: [
+      // ---- 模块 A：当前阶段与基本背景 ----
       {
-        id: 'r_foundation',
-        title: '模块 A：当前发展基础',
-        desc: '请如实描述当前的学业情况与能力状态，系统将以此建立你的成长画像基础。',
-        insight: '当前能力基础是生涯规划的起点，真实的自我评估比美化的答案更有价值。',
+        id: 'c_module_a',
+        title: '模块 A：当前阶段与基本背景',
+        desc: '请填写你当前的基本情况，系统将以此建立你的背景画像。',
+        insight: '了解你的当前阶段与背景，是生成精准生涯规划的基础。',
         fields: [
-          { id: 'currentStage', label: '当前所处阶段', type: 'radio', required: true, options: ['初中', '高中', '本科大一/大二', '本科大三/大四', '研究生', '工作中'] },
-          { id: 'schoolMajor', label: '当前学校/专业/课程方向', type: 'text', placeholder: '例：上海某国际高中，修IB课程，偏理科；或北京大学经济学大二学生' },
-          { id: 'academicLevel', label: '当前学业表现', type: 'radio', options: ['非常优秀', '良好', '中等', '偏弱', '暂不确定'] },
-          { id: 'topStrengths', label: '当前最强的 2–3 个能力是什么（请开放填写）', type: 'textarea', placeholder: '例：逻辑分析能力很强，擅长发现问题中的规律；英语表达流利，演讲比较自信；数学思维好，解题速度快' },
-          { id: 'topWeakness', label: '当前最弱的 1–2 个能力是什么（请开放填写）', type: 'textarea', placeholder: '例：执行力不够，很多事情有想法但落实不好；时间管理比较差' },
+          {
+            id: 'currentStage',
+            label: '你当前所处阶段是？',
+            type: 'radio',
+            required: true,
+            options: [
+              '初中',
+              '高中',
+              '本科',
+              '已毕业 / Gap 中',
+            ],
+          },
+          {
+            id: 'schoolName',
+            label: '你目前所在学校名称是？',
+            type: 'text',
+            placeholder: '例：上海某国际高中、北京大学等',
+          },
+          {
+            id: 'schoolType',
+            label: '你目前所在学校更接近哪一类？',
+            type: 'radio',
+            required: true,
+            options: [
+              '国内公立学校',
+              '国际学校 / 国际课程学校',
+              '国内本科院校',
+              '海外学校 / 海外本科院校',
+              '其他',
+            ],
+          },
+          {
+            id: 'gradeLevel',
+            label: '你当前所在年级/阶段是？',
+            type: 'radio',
+            required: true,
+            options: [
+              '初中 / 9 年级及以下',
+              '高中低年级 / 10–11 年级',
+              '高中高年级 / 12 年级及申请阶段',
+              '本科低年级 / 大一大二',
+              '本科高年级 / 大三大四或已毕业',
+            ],
+          },
+          {
+            id: 'reportGoal',
+            label: '你更希望这份报告帮助你解决哪类问题？',
+            type: 'radio',
+            required: true,
+            options: [
+              '判断未来更适合什么专业',
+              '判断未来更适合什么职业方向',
+              '判断当前最该补什么能力',
+              '判断未来 3–5 年怎么规划',
+              '都希望系统综合判断',
+            ],
+          },
         ],
       },
+      // ---- 模块 B：当前学习状态与成长基础 ----
       {
-        id: 'r_interest',
-        title: '模块 B：兴趣与方向',
-        desc: '请真实描述自己对哪些领域感兴趣，以及为什么，系统将据此判断方向匹配度。',
-        insight: '兴趣的真实程度与具体程度，将直接影响方向判断的准确性。',
+        id: 'c_module_b',
+        title: '模块 B：当前学习状态与成长基础',
+        desc: '请如实评估当前的学习状态与能力特征，系统将据此建立你的成长基础画像。',
+        insight: '当前能力结构的真实判断，是生成精准方向建议的核心依据。',
         fields: [
-          { id: 'interestFields', label: '最感兴趣的方向（最多选3）', type: 'checkbox', options: ['商业/金融', '科技/工程', '数据/AI', '医学/生命科学', '社会科学/公共政策', '法律', '传媒/内容', '创意/设计', '教育/心理', '暂不确定'] },
-          { id: 'interestReason', label: '为什么对这些方向感兴趣（请开放填写）', type: 'textarea', placeholder: '例：从小对数字和模型很敏感，看到商业案例会忍不住分析背后的逻辑；或者因为参加了学校的辩论队，发现自己很享受说服别人的过程…' },
-          { id: 'triedRelated', label: '目前是否已经尝试过相关课程/项目/活动', type: 'radio', options: ['有，且比较深入', '有一些尝试', '几乎没有', '不确定'] },
+          {
+            id: 'learningState',
+            label: '你当前对自己的整体学习状态判断更接近哪一项？',
+            type: 'radio',
+            required: true,
+            options: [
+              '整体比较稳定，知道自己擅长什么',
+              '学习还不错，但方向感不足',
+              '有一些亮点，但整体不够系统',
+              '目前比较迷茫，缺少明确主线',
+            ],
+          },
+          {
+            id: 'strongTaskTypes',
+            label: '你目前更容易在什么类型的任务里表现较好？（最多选 3）',
+            type: 'checkbox',
+            maxSelect: 3,
+            options: [
+              '需要逻辑分析和推理的任务',
+              '需要阅读、理解和整理复杂信息的任务',
+              '需要沟通、表达和说服他人的任务',
+              '需要组织协调和推动事情落地的任务',
+              '需要创意、内容或设计表达的任务',
+              '需要长期钻研、耐心积累的任务',
+            ],
+          },
+          {
+            id: 'weakTaskTypes',
+            label: '你目前更容易在哪类场景里感到吃力？（最多选 2）',
+            type: 'checkbox',
+            maxSelect: 2,
+            options: [
+              '高强度学术任务',
+              '长时间专注和深度钻研',
+              '与人沟通表达',
+              '在团队中组织和推动事情',
+              '把想法落到真实项目中',
+              '做选择时判断不清方向',
+            ],
+          },
+          {
+            id: 'growthState',
+            label: '你当前更接近哪种成长状态？',
+            type: 'radio',
+            required: true,
+            options: [
+              '已经在主动为未来做准备',
+              '有一些尝试，但还比较零散',
+              '大多还是跟着学校节奏走',
+              '还没有真正开始思考长期方向',
+            ],
+          },
         ],
       },
+      // ---- 模块 C：兴趣方向与持续投入倾向 ----
       {
-        id: 'r_ability',
-        title: '模块 C：能力与工作方式偏好',
-        desc: '请选择最符合自己实际情况的选项，帮助系统判断你最适合什么类型的工作环境。',
-        insight: '工作方式偏好与能力结构的匹配程度，是判断职业方向的核心依据之一。',
+        id: 'c_module_c',
+        title: '模块 C：兴趣方向与持续投入倾向',
+        desc: '请真实描述你感兴趣的方向，以及更愿意持续投入的事情类型。',
+        insight: '兴趣的持续性与具体程度，是判断方向匹配度的核心维度。',
         fields: [
-          { id: 'goodAt', label: '你更擅长哪类事情（最多选3）', type: 'checkbox', options: ['分析问题', '沟通表达', '组织协调', '执行落地', '创新创意', '研究与深度思考', '领导与带动他人', '解决复杂问题'] },
-          { id: 'workStyle', label: '你更喜欢哪种工作方式', type: 'radio', options: ['独立深度思考', '团队协作推进', '结构化分析与研究', '快节奏执行与结果导向', '创意表达与内容输出', '带领团队与做决策'] },
-          { id: 'workValues', label: '你希望未来的工作更偏向', type: 'radio', options: ['高收入回报', '稳定与确定性', '兴趣和热爱', '国际化机会', '社会影响力', '长期成长空间'] },
+          {
+            id: 'interestFields',
+            label: '你现在最感兴趣的方向有哪些？（最多选 4）',
+            type: 'checkbox',
+            maxSelect: 4,
+            options: [
+              '商业 / 金融 / 经济',
+              '计算机 / AI / 数据',
+              '工程 / 机械 / 电子 / 物理',
+              '生物 / 医学 / 健康相关',
+              '心理学 / 教育',
+              '社会科学 / 公共政策 / 国际关系',
+              '法律',
+              '传媒 / 内容 / 文化传播',
+              '设计 / 艺术 / 创意表达',
+              '还没有明确方向',
+            ],
+          },
+          {
+            id: 'sustainedFocus',
+            label: '哪类事情更容易让你持续投入很久？',
+            type: 'radio',
+            required: true,
+            options: [
+              '复杂问题和逻辑推理',
+              '真正做出一个项目或成果',
+              '理解人与社会、政策、组织运作',
+              '讲清楚一个观点、输出内容或表达创意',
+              '目前还在探索',
+            ],
+          },
+          {
+            id: 'freeTimeChoice',
+            label: '如果没有考试压力，你更愿意把时间花在哪类事情上？',
+            type: 'radio',
+            required: true,
+            options: [
+              '学习新知识、看书、钻研问题',
+              '做项目、做产品、做实验或实操',
+              '参加活动、社团、组织合作',
+              '写内容、表达想法、做创意类事情',
+              '暂时说不清楚',
+            ],
+          },
+          {
+            id: 'decisionDriver',
+            label: '你做选择时，通常更容易被什么吸引？',
+            type: 'radio',
+            required: true,
+            options: [
+              '这个方向逻辑上很有意思',
+              '这个方向现实结果很好',
+              '这个方向让我能持续保持兴趣',
+              '这个方向的平台和资源很强',
+              '往往多个因素一起考虑',
+            ],
+          },
         ],
       },
+      // ---- 模块 D：学习方式与环境偏好 ----
       {
-        id: 'r_career',
-        title: '模块 D：职业想象与路径认知',
-        desc: '请描述你对未来职业的想象，以及希望系统重点帮你判断什么。',
-        insight: '职业认知的清晰程度是系统判断路径成熟度的重要维度。',
+        id: 'c_module_d',
+        title: '模块 D：学习方式与环境偏好',
+        desc: '请选择最符合你实际情况的选项，帮助系统判断最适合你的成长环境。',
+        insight: '学习方式与环境偏好的匹配，将影响路径选择与学校/机构建议。',
         fields: [
-          { id: 'careerTarget', label: '目前最感兴趣的职业方向（可开放填写）', type: 'text', placeholder: '例：数据科学家、咨询顾问、产品经理、学者、创业者等' },
-          { id: 'careerReason', label: '你为什么会考虑这些职业方向（请开放填写）', type: 'textarea', placeholder: '例：因为喜欢解决有复杂度的问题，觉得咨询工作可以快速接触很多行业；或对AI技术很着迷，希望能做实际改变产品的工作…' },
-          { id: 'futureClarity', label: '你对未来 3–5 年是否有大致想法', type: 'radio', options: ['很明确', '有模糊方向', '比较不清楚', '完全不确定'] },
-          { id: 'helpNeeded', label: '你更希望系统帮你判断什么（最多选2）', type: 'checkbox', options: ['更适合什么专业', '更适合什么职业方向', '应该补什么能力', '未来时间怎么规划', '哪条长期路径更适合'] },
+          {
+            id: 'learningStyle',
+            label: '你更适应哪种学习方式？',
+            type: 'radio',
+            required: true,
+            options: [
+              '先系统理解理论框架，再开始做',
+              '先上手实践，在做的过程中理解',
+              '理论和实践必须交替进行',
+              '不同学科差异很大',
+            ],
+          },
+          {
+            id: 'studyEnvironmentPref',
+            label: '如果进入大学或研究生阶段，你更希望自己的学习状态接近哪一种？',
+            type: 'radio',
+            required: true,
+            options: [
+              '以学术研究和深度学习为主',
+              '以项目实践和应用能力为主',
+              '既有学术深度，也有实践机会',
+              '目前还不确定',
+            ],
+          },
+          {
+            id: 'campusLifePref',
+            label: '你更喜欢哪种学习/生活环境？',
+            type: 'radio',
+            required: true,
+            options: [
+              '节奏快、竞争强、身边高手很多',
+              '国际化强、资源多、机会密集',
+              '相对安静、适合沉下心来积累',
+              '平衡一些，学习与生活都比较稳定',
+            ],
+          },
+          {
+            id: 'cityPref',
+            label: '如果未来长期在一个城市生活，你更偏向哪种地方？',
+            type: 'radio',
+            required: true,
+            options: [
+              '文化多样性强、机会多的大城市',
+              '资源很强但生活秩序稳定的城市',
+              '学术氛围浓、适合专注学习的中小城市',
+              '更看重舒适、安全和长期生活感',
+            ],
+          },
+          {
+            id: 'newFieldReaction',
+            label: '当你面对一个不熟悉的领域时，通常更接近哪种反应？',
+            type: 'radio',
+            required: true,
+            options: [
+              '先大量搜集信息，再决定是否深入',
+              '先做一点、试一点，再看自己适不适合',
+              '先找懂的人聊，看看这个方向真实是什么样',
+              '经常先凭兴趣进入，再慢慢修正',
+            ],
+          },
         ],
       },
+      // ---- 模块 E：未来路径与结果偏好 ----
       {
-        id: 'r_constraints',
-        title: '模块 E：现实约束与发展条件',
-        desc: '请如实填写当前面临的主要限制，系统将据此生成最贴近实际的发展建议。',
-        insight: '承认限制不是缺点，而是做出正确规划决策的前提。',
+        id: 'c_module_e',
+        title: '模块 E：未来路径与结果偏好',
+        desc: '请描述你对未来路径和结果的偏好，系统将据此判断最适合的发展方向。',
+        insight: '对结果类型的偏好，是判断路径优先级与职业方向的重要参考。',
         fields: [
-          { id: 'mainLimits', label: '你目前最大的现实限制是什么（多选）', type: 'checkbox', options: ['学术成绩', '缺少实践经历', '缺少方向感', '资源有限', '家长期待压力', '对未来信息不清晰', '时间不够'] },
-          { id: 'willImprove', label: '你愿意为了长期目标优先补什么（最多选2）', type: 'checkbox', options: ['学术能力', '沟通表达', '实践与项目', '领导力', '行业认知', '国际化能力', '职业探索'] },
-          { id: 'parentExpect', label: '家长对你未来的期待更偏向哪种结果', type: 'radio', options: ['稳定', '高回报', '名校背景', '体面职业', '兴趣与热爱', '国际化发展', '暂不明确'] },
+          {
+            id: 'postGradDirection',
+            label: '如果毕业后要尽快做选择，你现在更偏向哪种方向？',
+            type: 'radio',
+            required: true,
+            options: [
+              '尽快进入工作与实践环境',
+              '先继续深造，再决定长期方向',
+              '先工作，再择机继续深造',
+              '目前还不好判断',
+            ],
+          },
+          {
+            id: 'phdAttitude',
+            label: '你对更高学位（如博士等）的态度更接近哪一项？',
+            type: 'radio',
+            required: true,
+            options: [
+              '明显有兴趣',
+              '不排斥，但要看方向和值不值得',
+              '目前更倾向就业',
+              '还没有认真想过',
+            ],
+          },
+          {
+            id: 'futureOutcomes',
+            label: '你未来最看重哪类结果？（最多选 2）',
+            type: 'checkbox',
+            maxSelect: 2,
+            options: [
+              '高收入与回报',
+              '稳定与确定性',
+              '兴趣和长期投入感',
+              '国际化机会与平台',
+              '社会影响力或成就感',
+              '长期成长空间',
+            ],
+          },
+          {
+            id: 'futureSelfImage',
+            label: '你更希望未来的自己接近哪种状态？',
+            type: 'radio',
+            required: true,
+            options: [
+              '在一个专业领域里很强、很深',
+              '在现实世界里很能解决问题',
+              '能连接资源、组织事情、带动别人',
+              '有清晰表达和创造影响力的能力',
+              '目前还没有形成明确想象',
+            ],
+          },
         ],
       },
+      // ---- 模块 F：实践经历与方向验证 ----
       {
-        id: 'r_longterm',
-        title: '模块 F：长期目标与个人判断',
-        desc: '这是最重要的一个模块。请尽量真实地表达你对自己的认识和对未来的想象。',
-        insight: '对自己的深度认知，是系统生成高价值生涯判断的最核心输入。',
+        id: 'c_module_f',
+        title: '模块 F：实践经历与方向验证',
+        desc: '请如实填写已有的经历，系统将据此判断方向验证程度与经历完整度。',
+        insight: '已有经历的质量和方向，是判断能力现状和下一步优先级的重要依据。',
         fields: [
-          { id: 'futureSelf', label: '你认为自己未来最可能成为什么样的人（请开放填写）', type: 'textarea', placeholder: '可以是一个具体的人物画像、一种生活状态、或者一种社会角色。不需要"正确答案"，越真实越好…' },
-          { id: 'futureWorries', label: '你最担心未来发展的什么问题（请开放填写）', type: 'textarea', placeholder: '例：担心自己没有明确方向一直在迷茫、担心找不到真正喜欢又有钱途的工作、担心和别人比起来竞争力太弱…' },
+          {
+            id: 'expTypes',
+            label: '你目前已经有过哪些经历？（最多选 6）',
+            type: 'checkbox',
+            maxSelect: 6,
+            options: [
+              '学术竞赛',
+              '科研 / 研究项目',
+              '实习 / 工作实践',
+              '社团 / 学生组织',
+              '志愿活动 / 公益经历',
+              '创业 / 项目实践',
+              '国际项目 / 夏校 / 交换',
+              '内容输出 / 作品集 / 公开成果',
+              '暂无特别突出的经历',
+            ],
+          },
+          {
+            id: 'expResearch',
+            label: '科研 / 研究项目经历',
+            type: 'textarea',
+            conditional: { field: 'expTypes', includes: '科研 / 研究项目' },
+            placeholder: '请填写你最有代表性的 1–2 项科研或研究经历。',
+          },
+          {
+            id: 'expInternship',
+            label: '实习 / 工作实践经历',
+            type: 'textarea',
+            conditional: { field: 'expTypes', includes: '实习 / 工作实践' },
+            placeholder: '请填写你最有代表性的 1–2 项实习或实践经历。',
+          },
+          {
+            id: 'expClub',
+            label: '社团 / 学生组织经历',
+            type: 'textarea',
+            conditional: { field: 'expTypes', includes: '社团 / 学生组织' },
+            placeholder: '请填写你最有代表性的 1–2 项组织或活动经历。',
+          },
+          {
+            id: 'expEntrepreneur',
+            label: '创业 / 项目实践经历',
+            type: 'textarea',
+            conditional: { field: 'expTypes', includes: '创业 / 项目实践' },
+            placeholder: '请填写你最有代表性的 1–2 项项目经历。',
+          },
+          {
+            id: 'expPortfolio',
+            label: '内容输出 / 作品集 / 公开成果',
+            type: 'textarea',
+            conditional: { field: 'expTypes', includes: '内容输出 / 作品集 / 公开成果' },
+            placeholder: '请填写你最有代表性的 1–2 项成果。',
+          },
+          {
+            id: 'expOverallState',
+            label: '这些经历目前更接近哪种状态？',
+            type: 'radio',
+            required: true,
+            options: [
+              '已经能体现出比较明确的方向',
+              '有一些经历，但还看不出稳定主线',
+              '经历不少，但偏分散',
+              '整体还比较空白',
+            ],
+          },
+          {
+            id: 'expFutureDirection',
+            label: '你更希望未来的经历积累偏向哪类？',
+            type: 'radio',
+            required: true,
+            options: [
+              '更偏学术和研究',
+              '更偏项目和实践',
+              '更偏综合发展',
+              '还希望系统帮我判断',
+            ],
+          },
+        ],
+      },
+      // ---- 模块 G：关键限制与成长阻力 ----
+      {
+        id: 'c_module_g',
+        title: '模块 G：关键限制与成长阻力',
+        desc: '请如实评估当前发展的主要障碍，系统将据此判断优先补强方向。',
+        insight: '承认限制并正确定位阻力，是制定有效发展计划的前提。',
+        fields: [
+          {
+            id: 'mainLimitation',
+            label: '你觉得当前最限制自己发展的问题更接近哪一项？',
+            type: 'radio',
+            required: true,
+            options: [
+              '学术基础还不够稳',
+              '缺少明确方向',
+              '缺少实践和成果',
+              '缺少持续投入和执行力',
+              '选择太多，反而难以下判断',
+            ],
+          },
+          {
+            id: 'priorityBreakthrough',
+            label: '如果未来 1–2 年只能重点突破一个问题，你觉得最需要先解决什么？',
+            type: 'radio',
+            required: true,
+            options: [
+              '方向感不清晰',
+              '学术或能力基础不够',
+              '缺少项目/实践经历',
+              '缺少长期主线和持续积累',
+              '还需要系统帮我判断',
+            ],
+          },
+          {
+            id: 'futureWorries',
+            label: '你当前最担心未来发展的什么问题？（最多选 2）',
+            type: 'checkbox',
+            maxSelect: 2,
+            options: [
+              '选错专业或方向',
+              '现在做的事情对长期没用',
+              '没有形成真正的竞争力',
+              '未来职业方向不清楚',
+              '自己的投入和结果不匹配',
+              '发展节奏太慢，怕错过机会',
+            ],
+          },
+        ],
+      },
+      // ---- 模块 H：报告目标 ----
+      {
+        id: 'c_module_h',
+        title: '模块 H：报告目标',
+        desc: '请告诉系统你最想从这份报告中获得哪些判断，系统将重点围绕这些问题展开分析。',
+        insight: '明确诉求将帮助系统生成更有针对性的生涯建议。',
+        fields: [
+          {
+            id: 'reportFocus',
+            label: '你最希望这份报告重点告诉你的是什么？（最多选 2）',
+            type: 'checkbox',
+            maxSelect: 2,
+            options: [
+              '我更适合什么专业方向',
+              '我更适合什么职业方向',
+              '我当前最该补什么能力',
+              '我未来 3–5 年应该怎么规划',
+              '我现在做的事情值不值得继续投入',
+            ],
+          },
+          {
+            id: 'mostCriticalJudgment',
+            label: '如果系统最终只能给你一个最关键的判断，你最希望它给出什么？',
+            type: 'radio',
+            required: true,
+            options: [
+              '更适合哪条长期路径',
+              '最需要先补的核心能力',
+              '当前方向是不是走对了',
+              '未来几年最应该怎么布局',
+            ],
+          },
         ],
       },
     ],
@@ -1402,217 +1824,339 @@ ${expDetails}
 
     },
 
+    family: {
+      systemPrompt: `你是高端家庭教育战略顾问，专注于为高净值家庭提供国际化教育路径判断与家庭资源配置决策支持。
+你的任务是基于家庭问卷档案数据，生成一份《NextGen家族教育战略智能报告》的完整结构化JSON数据。
+
+报告核心定位：
+这是一份"家庭教育战略判断报告"，不是留学申请报告的延伸版本。
+核心目标：帮家庭判断"这类家庭适不适合走国际化路径、更适合哪条路径、钱和时间应该怎么投、当前决策里最大的误区和矛盾是什么"。
+
+报告结构（7个模块）：
+模块1：执行摘要（总判断，450-550字）
+模块2：家庭教育目标画像（含雷达图）
+模块3：学生画像与亲子目标一致性分析（含一致性分析图）
+模块4：国家/地区路径判断（含国家路径对比图）
+模块5：家庭资源投入建议（含资源配置建议图）
+模块6：当前最关键的家庭决策问题
+模块7：结语与代金券引导
+
+核心原则：
+1. 帮家长做判断，而不是帮家长看热闹
+2. 先澄清方向，再识别矛盾，最后给出路径和投入建议
+3. 语言要有判断力、有框架感，能让家长产生"被点醒"的感觉
+4. 既要专业深度，又要保留引导后续咨询的空间
+5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
+
+      buildPrompt: (data) => {
+        const mainProblem = data.mainProblem || '未填写';
+        const childStage = data.childStage || '未填写';
+        const schoolTypeF = data.schoolTypeF || '未填写';
+        const intlPathDecision = data.intlPathDecision || '未填写';
+        const applyTiming = data.applyTiming || '未填写';
+        const academicPerformance = data.academicPerformance || '未填写';
+        const childStrengths = Array.isArray(data.childStrengths) ? data.childStrengths.join('、') : (data.childStrengths || '未填写');
+        const childWeaknesses = Array.isArray(data.childWeaknesses) ? data.childWeaknesses.join('、') : (data.childWeaknesses || '未填写');
+        const directionClarity = data.directionClarity || '未填写';
+        const childState = data.childState || '未填写';
+        const familyValues = Array.isArray(data.familyValues) ? data.familyValues.join('、') : (data.familyValues || '未填写');
+        const firstPriority = data.firstPriority || '未填写';
+        const hopeChildBecome = data.hopeChildBecome || '未填写';
+        const educationRole = data.educationRole || '未填写';
+        const preferCountries = Array.isArray(data.preferCountries) ? data.preferCountries.join('、') : (data.preferCountries || '未填写');
+        const countryPreferenceReason = Array.isArray(data.countryPreferenceReason) ? data.countryPreferenceReason.join('、') : (data.countryPreferenceReason || '未填写');
+        const preferredEnvironment = data.preferredEnvironment || '未填写';
+        const pathRhythm = data.pathRhythm || '未填写';
+        const budgetAttitude = data.budgetAttitude || '未填写';
+        const investFocus = Array.isArray(data.investFocus) ? data.investFocus.join('、') : (data.investFocus || '未填写');
+        const familyWorries = Array.isArray(data.familyWorries) ? data.familyWorries.join('、') : (data.familyWorries || '未填写');
+        const earlyPlanningAttitude = data.earlyPlanningAttitude || '未填写';
+        const parentChildAlignment = data.parentChildAlignment || '未填写';
+        const gapAreas = Array.isArray(data.gapAreas) ? data.gapAreas.join('、') : (data.gapAreas || '未填写');
+        const hardestDecision = data.hardestDecision || '未填写';
+        const hopeSystemDecide = data.hopeSystemDecide || '未填写';
+        const newThingReaction = data.newThingReaction || '未填写';
+        const learningEnvironment = data.learningEnvironment || '未填写';
+        const learningStyle = data.learningStyle || '未填写';
+        const developmentRhythm = data.developmentRhythm || '未填写';
+        const postGradTendency = data.postGradTendency || '未填写';
+        const reportFocus = Array.isArray(data.reportFocus) ? data.reportFocus.join('、') : (data.reportFocus || '未填写');
+        const mostCriticalThing = data.mostCriticalThing || '未填写';
+
+        return `请基于以下家庭档案，生成《NextGen家族教育战略智能报告》完整结构化数据：
+
+===== 家庭档案 =====
+
+【模块 A：家庭当前所处阶段】
+当前最想解决的问题：${mainProblem}
+孩子当前所处阶段：${childStage}
+孩子当前学校类型：${schoolTypeF}
+国际化路径判断：${intlPathDecision}
+计划进入申请阶段的时间：${applyTiming}
+
+【模块 B：孩子当前的基础状态】
+整体学业表现：${academicPerformance}
+孩子主要优势：${childStrengths}
+孩子主要短板：${childWeaknesses}
+对未来方向清晰度：${directionClarity}
+孩子当前发展状态：${childState}
+
+【模块 C：家庭教育目标与价值排序】
+家庭最看重什么：${familyValues}
+第一优先级：${firstPriority}
+希望孩子成为哪类人：${hopeChildBecome}
+教育最重要的作用：${educationRole}
+
+【模块 D：国家/地区与路径偏好】
+优先考虑的国家/地区：${preferCountries}
+偏好来源：${countryPreferenceReason}
+偏好的生活/学习环境：${preferredEnvironment}
+可接受的路径节奏：${pathRhythm}
+
+【模块 E：家庭投入方式与预算观】
+教育投入态度：${budgetAttitude}
+愿意优先投入的方向：${investFocus}
+家庭主要担忧：${familyWorries}
+对早规划的态度：${earlyPlanningAttitude}
+
+【模块 F：亲子目标一致性与决策矛盾】
+亲子目标一致情况：${parentChildAlignment}
+分歧类型（如有）：${gapAreas}
+最难做的决策：${hardestDecision}
+希望系统帮助做哪类决定：${hopeSystemDecide}
+
+【模块 G：孩子的学习方式与长期发展倾向】
+面对新事物的反应：${newThingReaction}
+适应的学习环境：${learningEnvironment}
+学习方式：${learningStyle}
+发展节奏倾向：${developmentRhythm}
+毕业后倾向：${postGradTendency}
+
+【模块 H：报告目标】
+报告重点关注：${reportFocus}
+最希望解决的一件事：${mostCriticalThing}
+
+===================
+
+请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
+
+{
+  // ===== 模块1：执行摘要（450-550字）=====
+  "executiveSummary": "450-550字。三层内容：第一层写家庭当前状态判断（是否适合国际化路径、家长与学生目标是否存在隐性偏差）；第二层写更适合的路径方向（理性布局型/冲刺名校型/稳妥优先型，以及priority国家/地区）；第三层写当前最需要解决的问题（是方向问题、投入问题还是一致性问题）。要有判断力、有框架感、让家长产生'被点醒'的感觉",
+
+  // ===== 模块2：家庭教育目标画像（含图表1：雷达图）=====
+  "familyGoalRadar": {
+    "rankOriented": "数字0-100，名校导向程度",
+    "valueOriented": "数字0-100，性价比导向程度",
+    "stabilityOriented": "数字0-100，稳定性导向程度",
+    "globalOriented": "数字0-100，国际化导向程度",
+    "careerOriented": "数字0-100，就业导向程度",
+    "growthOriented": "数字0-100，长期成长导向程度"
+  },
+  "familyGoalText": "200-250字，写：当前家庭目标最强的2个维度；最容易冲突的1-2个维度；为什么这种组合会影响路径选择",
+
+  // ===== 模块3：学生画像与亲子目标一致性分析（含图表2：一致性分析图）=====
+  "studentProfileText": "200-250字，写：当前成长状态；当前自驱程度；当前方向清晰度；当前更适合什么节奏",
+  "alignmentRadar": {
+    "countryChoice": "数字0-100，国家选择一致度",
+    "schoolTier": "数字0-100，学校层级期待一致度",
+    "majorDirection": "数字0-100，专业方向一致度",
+    "investmentExpect": "数字0-100，投入强度预期一致度",
+    "riskPreference": "数字0-100，风险偏好一致度"
+  },
+  "alignmentText": "300-350字，写：哪些地方一致；哪些地方存在隐性偏差；哪些偏差短期不解决会直接影响后续决策效率",
+
+  // ===== 模块4：国家/地区路径判断（含图表3：国家路径对比图）=====
+  "countryPathComparison": [
+    {
+      "country": "国家/地区名",
+      "costScore": "数字0-100，成本压力（越高表示成本越低、性价比越好）",
+      "thresholdScore": "数字0-100，申请门槛可达度（越高越容易进入）",
+      "stabilityScore": "数字0-100，结果稳定性",
+      "developmentScore": "数字0-100，长期发展空间",
+      "familyFitScore": "数字0-100，家庭适配度",
+      "recommendation": "优先推荐|补充参考|暂不建议",
+      "estimatedCost": "预估4年总费用",
+      "pros": ["优势点1", "优势点2"],
+      "cons": ["注意事项1"]
+    }
+  ],
+  "countryPathText": "400-500字，分三层写：优先路径及原因；补充参考路径及原因；暂不建议优先投入的路径及原因",
+
+  // ===== 模块5：家庭资源投入建议（含图表4：资源配置建议图）=====
+  "resourceRadar": {
+    "academicInvest": "数字0-100，建议学业/成绩投入优先级",
+    "testInvest": "数字0-100，建议标化/语言投入优先级",
+    "backgroundInvest": "数字0-100，建议背景提升投入优先级",
+    "globalProjectInvest": "数字0-100，建议国际项目投入优先级",
+    "longTermPlanInvest": "数字0-100，建议长期规划与咨询投入优先级"
+  },
+  "resourceText": "300-350字，分三层写：A. 当前最值得投入的方向；B. 当前可以控制投入的方向；C. 当前暂不建议过度投入的方向",
+  "budgetMilestones": [{"phase": "阶段", "item": "投入项目", "amount": "建议金额范围", "priority": "high|medium|low"}],
+
+  // ===== 模块6：当前最关键的家庭决策问题 =====
+  "keyDecision": {
+    "coreQuestion": "当前最关键的决策问题（1句话）",
+    "riskIfNotSolved": "100-150字，写：如果不解决这个问题，会发生什么",
+    "nextAction": "100-150字，写：下一阶段最合理的家庭动作是什么"
+  },
+
+  // ===== 模块7：结语与代金券引导 =====
+  "conclusion": "100-150字结语。自然引出后续咨询，提及代金券可用于预约荔智惠专业顾问"
+}
+
+`;
+
+      },
+
+    },
+
+    career: {
+      systemPrompt: `你是国际顶级生涯规划顾问，整合了职业心理学、人才测评和就业市场分析专业知识。
+你的任务是基于学生档案数据，生成一份《Life-Career Strategy人生生涯全规划报告》的完整结构化JSON数据。
+
+核心原则：
+1. 这是一份真正的长期发展诊断报告，不是兴趣测试结果汇总
+2. 重点关注：能力现状、方向匹配、路径选择、能力缺口、时间规划
+3. 判断要基于学生的真实答案，有逻辑支撑，有依据的推断
+4. 文字内容要直接、有价值，不要用废话和套话
+5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
+
+      buildPrompt: (data) => {
+        const currentStage = data.currentStage || '未填写';
+        const schoolName = data.schoolName || '未填写';
+        const schoolType = data.schoolType || '未填写';
+        const gradeLevel = data.gradeLevel || '未填写';
+        const reportGoal = data.reportGoal || '未填写';
+        const learningState = data.learningState || '未填写';
+        const strongTaskTypes = Array.isArray(data.strongTaskTypes) ? data.strongTaskTypes.join('、') : (data.strongTaskTypes || '未填写');
+        const weakTaskTypes = Array.isArray(data.weakTaskTypes) ? data.weakTaskTypes.join('、') : (data.weakTaskTypes || '未填写');
+        const growthState = data.growthState || '未填写';
+        const interestFields = Array.isArray(data.interestFields) ? data.interestFields.join('、') : (data.interestFields || '未填写');
+        const sustainedFocus = data.sustainedFocus || '未填写';
+        const freeTimeChoice = data.freeTimeChoice || '未填写';
+        const decisionDriver = data.decisionDriver || '未填写';
+        const learningStyle = data.learningStyle || '未填写';
+        const studyEnvironmentPref = data.studyEnvironmentPref || '未填写';
+        const campusLifePref = data.campusLifePref || '未填写';
+        const cityPref = data.cityPref || '未填写';
+        const newFieldReaction = data.newFieldReaction || '未填写';
+        const postGradDirection = data.postGradDirection || '未填写';
+        const phdAttitude = data.phdAttitude || '未填写';
+        const futureOutcomes = Array.isArray(data.futureOutcomes) ? data.futureOutcomes.join('、') : (data.futureOutcomes || '未填写');
+        const futureSelfImage = data.futureSelfImage || '未填写';
+        const expTypes = Array.isArray(data.expTypes) ? data.expTypes.join('、') : (data.expTypes || '未填写');
+        const expDetails = [
+          data.expResearch ? '【科研】' + data.expResearch : null,
+          data.expInternship ? '【实习】' + data.expInternship : null,
+          data.expClub ? '【社团】' + data.expClub : null,
+          data.expEntrepreneur ? '【创业/项目】' + data.expEntrepreneur : null,
+          data.expPortfolio ? '【作品集/成果】' + data.expPortfolio : null,
+        ].filter(Boolean).join('\n') || '暂无具体描述';
+        const expOverallState = data.expOverallState || '未填写';
+        const expFutureDirection = data.expFutureDirection || '未填写';
+        const mainLimitation = data.mainLimitation || '未填写';
+        const priorityBreakthrough = data.priorityBreakthrough || '未填写';
+        const futureWorries = Array.isArray(data.futureWorries) ? data.futureWorries.join('、') : (data.futureWorries || '未填写');
+        const reportFocus = Array.isArray(data.reportFocus) ? data.reportFocus.join('、') : (data.reportFocus || '未填写');
+        const mostCriticalJudgment = data.mostCriticalJudgment || '未填写';
+
+        return `请基于以下学生档案，生成《Life-Career Strategy人生生涯全规划报告》完整结构化数据：
+
+===== 学生档案 =====
+
+【模块 A：当前阶段与基本背景】
+当前所处阶段：${currentStage}
+学校名称：${schoolName}
+学校类型：${schoolType}
+年级/阶段：${gradeLevel}
+报告目标：${reportGoal}
+
+【模块 B：当前学习状态与成长基础】
+整体学习状态：${learningState}
+擅长的任务类型：${strongTaskTypes}
+感到吃力的场景：${weakTaskTypes}
+当前成长状态：${growthState}
+
+【模块 C：兴趣方向与持续投入倾向】
+感兴趣的方向：${interestFields}
+能持续投入的事情类型：${sustainedFocus}
+自由时间的使用偏好：${freeTimeChoice}
+做选择时的驱动因素：${decisionDriver}
+
+【模块 D：学习方式与环境偏好】
+学习方式偏好：${learningStyle}
+未来学习状态偏好：${studyEnvironmentPref}
+学习/生活环境偏好：${campusLifePref}
+城市偏好：${cityPref}
+面对新领域的反应方式：${newFieldReaction}
+
+【模块 E：未来路径与结果偏好】
+毕业后方向偏好：${postGradDirection}
+对更高学位的态度：${phdAttitude}
+最看重的未来结果：${futureOutcomes}
+希望的未来自我状态：${futureSelfImage}
+
+【模块 F：实践经历与方向验证】
+已有经历类型：${expTypes}
+经历详情：
+${expDetails}
+经历整体状态：${expOverallState}
+未来经历方向偏好：${expFutureDirection}
+
+【模块 G：关键限制与成长阻力】
+当前最大限制：${mainLimitation}
+未来 1–2 年优先突破：${priorityBreakthrough}
+最担心的问题：${futureWorries}
+
+【模块 H：报告目标】
+报告重点关注：${reportFocus}
+最希望获得的关键判断：${mostCriticalJudgment}
+
+===================
+
+请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
+{
+  "growthRadar": {
+    "academicPotential": 数字(0-100，学术潜力),
+    "practiceOrientation": 数字(0-100，实践导向),
+    "analyticalAbility": 数字(0-100，分析能力),
+    "communication": 数字(0-100，表达与沟通),
+    "leadership": 数字(0-100，领导力倾向),
+    "globalMindset": 数字(0-100，国际化发展倾向)
+  },
+  "abilityTags": [{"tag": "能力标签", "weight": 数字(0-100，权重), "type": "strength|potential|gap"}],
+  "longTermSummary": "150-200字长期发展摘要，一句话给出最核心的长期方向判断",
+  "growthProfileText": "300-350字，写：当前的优势结构；当前的能力特征；当前的发展状态",
+  "interestDirectionText": "350-450字，写：哪些方向更匹配；为什么匹配；哪些方向需要谨慎；当前兴趣和现实条件是否一致",
+  "careerPathTree": {
+    "currentStage": "当前阶段描述（1句话）",
+    "branches": [
+      {
+        "pathName": "路径名称",
+        "fitScore": 数字(0-100),
+        "studyPath": "推荐学业路径",
+        "majorPath": "推荐专业方向",
+        "careerTarget": "最终职业目标",
+        "keyMilestones": ["里程碑1", "里程碑2", "里程碑3"]
+      }
+    ]
+  },
+  "academicCareerText": "450-550字（核心部分），写：哪类专业更适合；哪类职业方向更顺；为什么会做出这样的判断；哪些方向可以先探索后收敛",
+  "capabilityGaps": [
+    {"capability": "能力项名称", "currentLevel": 数字(0-100), "requiredLevel": 数字(0-100), "urgency": "high|medium|low", "whyImportant": "50字内为什么重要", "howToImprove": "50字内如何提升"}
+  ],
+  "capabilityGapText": "350-450字，写：缺什么；为什么重要；不补会带来什么问题；哪些能力对长期竞争力是关键门槛",
+  "fiveYearTimeline": [
+    {"phase": "当前阶段|1年内|2-3年内|3-5年关键节点", "focus": "阶段核心焦点", "keyActions": ["行动1", "行动2"], "expectedOutcome": "预期成果"}
+  ],
+  "fiveYearText": "300-400字，按时间轴表达：当前阶段；下一阶段；中长期重点"
+  }
+`;
+      },
+    },
+
   };
-
-//     family: {
-//       systemPrompt: `你是高端家庭教育战略顾问，专注于为高净值家庭提供全周期国际化教育路径规划。
-// 你的任务是基于家庭档案数据，生成一份《NextGen家族教育战略智能报告》的完整结构化JSON数据。
-// 
-// 核心原则：
-// 1. 这是一份家庭决策报告，不是学生申请报告
-// 2. 重点关注：最优路径选择、钱和时间怎么投、亲子目标对齐
-// 3. 语言风格：理性、专业、有据可依，避免空洞建议
-// 4. 每一节文字内容要有实质信息量，字数要求严格遵守
-// 5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
-// 
-//       buildPrompt: (data) => {
-//         const mainProblem = data.mainProblem || '未填写';
-//         const childStage = data.childStage || '未填写';
-//         const schoolTypeF = data.schoolTypeF || '未填写';
-//         const intlPathDecision = data.intlPathDecision || '未填写';
-//         const applyTiming = data.applyTiming || '未填写';
-//         const academicPerformance = data.academicPerformance || '未填写';
-//         const childStrengths = Array.isArray(data.childStrengths) ? data.childStrengths.join('、') : (data.childStrengths || '未填写');
-//         const childWeaknesses = Array.isArray(data.childWeaknesses) ? data.childWeaknesses.join('、') : (data.childWeaknesses || '未填写');
-//         const directionClarity = data.directionClarity || '未填写';
-//         const childState = data.childState || '未填写';
-//         const familyValues = Array.isArray(data.familyValues) ? data.familyValues.join('、') : (data.familyValues || '未填写');
-//         const firstPriority = data.firstPriority || '未填写';
-//         const hopeChildBecome = data.hopeChildBecome || '未填写';
-//         const educationRole = data.educationRole || '未填写';
-//         const preferCountries = Array.isArray(data.preferCountries) ? data.preferCountries.join('、') : (data.preferCountries || '未填写');
-//         const countryPreferenceReason = Array.isArray(data.countryPreferenceReason) ? data.countryPreferenceReason.join('、') : (data.countryPreferenceReason || '未填写');
-//         const preferredEnvironment = data.preferredEnvironment || '未填写';
-//         const pathRhythm = data.pathRhythm || '未填写';
-//         const budgetAttitude = data.budgetAttitude || '未填写';
-//         const investFocus = Array.isArray(data.investFocus) ? data.investFocus.join('、') : (data.investFocus || '未填写');
-//         const familyWorries = Array.isArray(data.familyWorries) ? data.familyWorries.join('、') : (data.familyWorries || '未填写');
-//         const earlyPlanningAttitude = data.earlyPlanningAttitude || '未填写';
-//         const parentChildAlignment = data.parentChildAlignment || '未填写';
-//         const gapAreas = Array.isArray(data.gapAreas) ? data.gapAreas.join('、') : (data.gapAreas || '未填写');
-//         const hardestDecision = data.hardestDecision || '未填写';
-//         const hopeSystemDecide = data.hopeSystemDecide || '未填写';
-//         const newThingReaction = data.newThingReaction || '未填写';
-//         const learningEnvironment = data.learningEnvironment || '未填写';
-//         const learningStyle = data.learningStyle || '未填写';
-//         const developmentRhythm = data.developmentRhythm || '未填写';
-//         const postGradTendency = data.postGradTendency || '未填写';
-//         const reportFocus = Array.isArray(data.reportFocus) ? data.reportFocus.join('、') : (data.reportFocus || '未填写');
-//         const mostCriticalThing = data.mostCriticalThing || '未填写';
-// 
-//         return `请基于以下家庭档案，生成《NextGen家族教育战略智能报告》完整结构化数据：
-// 
-// ===== 家庭档案 =====
-// 
-// 【模块 A：家庭当前所处阶段】
-// 当前最想解决的问题：${mainProblem}
-// 孩子当前所处阶段：${childStage}
-// 孩子当前学校类型：${schoolTypeF}
-// 国际化路径判断：${intlPathDecision}
-// 计划进入申请阶段的时间：${applyTiming}
-// 
-// 【模块 B：孩子当前的基础状态】
-// 整体学业表现：${academicPerformance}
-// 孩子主要优势：${childStrengths}
-// 孩子主要短板：${childWeaknesses}
-// 对未来方向清晰度：${directionClarity}
-// 孩子当前发展状态：${childState}
-// 
-// 【模块 C：家庭教育目标与价值排序】
-// 家庭最看重什么：${familyValues}
-// 第一优先级：${firstPriority}
-// 希望孩子成为哪类人：${hopeChildBecome}
-// 教育最重要的作用：${educationRole}
-// 
-// 【模块 D：国家/地区与路径偏好】
-// 优先考虑的国家/地区：${preferCountries}
-// 偏好来源：${countryPreferenceReason}
-// 偏好的生活/学习环境：${preferredEnvironment}
-// 可接受的路径节奏：${pathRhythm}
-// 
-// 【模块 E：家庭投入方式与预算观】
-// 教育投入态度：${budgetAttitude}
-// 愿意优先投入的方向：${investFocus}
-// 家庭主要担忧：${familyWorries}
-// 对早规划的态度：${earlyPlanningAttitude}
-// 
-// 【模块 F：亲子目标一致性与决策矛盾】
-// 亲子目标一致情况：${parentChildAlignment}
-// 分歧类型（如有）：${gapAreas}
-// 最难做的决策：${hardestDecision}
-// 希望系统帮助做哪类决定：${hopeSystemDecide}
-// 
-// 【模块 G：孩子的学习方式与长期发展倾向】
-// 面对新事物的反应：${newThingReaction}
-// 适应的学习环境：${learningEnvironment}
-// 学习方式：${learningStyle}
-// 发展节奏倾向：${developmentRhythm}
-// 毕业后倾向：${postGradTendency}
-// 
-// 【模块 H：报告目标】
-// 报告重点关注：${reportFocus}
-// 最希望解决的一件事：${mostCriticalThing}
-// 
-// ===================
-// 
-// 请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
-// （所有文字内容必须是中文，字数要求请严格遵守）：
-// {
-//   "familyGoalRadar": {
-//     "rankOriented": 数字(0-100，名校导向程度),
-//     "valueOriented": 数字(0-100，性价比导向程度),
-//     "stabilityOriented": 数字(0-100，稳定性导向程度),
-//     "globalOriented": 数字(0-100，国际化导向程度),
-//     "careerOriented": 数字(0-100，就业导向程度),
-//     "growthOriented": 数字(0-100，长期成长导向程度)
-//   },
-//   "familySummary": "150-200字家庭战略摘要，一句话概括最适合这类家庭的国际化路径",
-//   "decisionStateAnalysis": "300-350字，写：家庭目前处于什么判断阶段；决策核心矛盾是什么；当前最大的盲区是什么",
-//   "studentFamilyAlignment": {
-//     "alignmentRadar": {
-//       "countryChoice": 数字(0-100，国家选择一致度),
-//       "schoolTier": 数字(0-100，学校层级一致度),
-//       "majorDirection": 数字(0-100，专业方向一致度),
-//       "investmentExpect": 数字(0-100，投入预期一致度),
-//       "riskPreference": 数字(0-100，风险偏好一致度)
-//     },
-//     "alignmentText": "350-450字，写：学生特点；家长期待；匹配点；偏差点；哪些偏差需要尽快统一"
-//   },
-//   "countryPathComparison": [
-//     {
-//       "country": "国家名",
-//       "costScore": 数字(0-100，性价比，越高性价比越好),
-//       "thresholdScore": 数字(0-100，门槛可达度，越高越容易进入),
-//       "stabilityScore": 数字(0-100，结果稳定性),
-//       "globalScore": 数字(0-100，国际化程度),
-//       "careerScore": 数字(0-100，职业连接度),
-//       "recommendation": "强烈推荐|推荐|可考虑|不建议",
-//       "estimatedCost": "预估4年总费用",
-//       "pros": ["优势1", "优势2"],
-//       "cons": ["劣势1"]
-//     }
-//   ],
-//   "countryPathText": "450-550字，写：哪些国家更适合；哪些路径不建议盲目投入；成本、结果、稳定性如何比较；哪些路径更符合当前家庭画像",
-//   "resourceAllocation": {
-//     "radarData": {
-//       "academicInvest": 数字(0-100，建议学业投入优先级),
-//       "testInvest": 数字(0-100，建议标化投入优先级),
-//       "backgroundInvest": 数字(0-100，建议背景提升投入优先级),
-//       "globalProjectInvest": 数字(0-100，建议国际项目投入优先级),
-//       "longTermPlanInvest": 数字(0-100，建议长期规划投入优先级)
-//     },
-//     "allocationText": "350-450字，写：钱应该优先投向哪里；时间应该优先放在哪里；哪些投入性价比低；哪些投入会直接影响结果",
-//     "budgetMilestones": [{"phase": "阶段", "item": "投入项目", "amount": "建议金额范围", "priority": "high|medium|low"}]
-//   },
-//   "conclusion": "100-150字决策建议结语，自然引出荔智惠专业顾问咨询，提及代金券可用"
-//   },
-// 
-//     career: {
-//       systemPrompt: `你是国际顶级生涯规划顾问，整合了职业心理学、人才测评和就业市场分析专业知识。
-// 你的任务是基于学生档案数据，生成一份《Life-Career Strategy人生生涯全规划报告》的完整结构化JSON数据。
-// 
-// 核心原则：
-// 1. 这是一份真正的长期发展诊断报告，不是兴趣测试结果汇总
-// 2. 重点关注：能力现状、方向匹配、路径选择、能力缺口、时间规划
-// 3. 判断要基于学生的真实答案，有逻辑支撑，有依据的推断
-// 4. 文字内容要直接、有价值，不要用废话和套话
-// 5. 必须返回有效的JSON对象，不要有任何markdown标记或代码块，直接返回JSON`,
-// 
-//       buildPrompt: (data) => `请基于以下学生档案，生成《Life-Career Strategy人生生涯全规划报告》完整结构化数据：
-// 
-// 学生档案：
-// ${JSON.stringify(data, null, 2)}
-// 
-// 请严格按照以下JSON格式返回（所有文字内容必须是中文，字数要求请严格遵守）：
-// {
-//   "growthRadar": {
-//     "academicPotential": 数字(0-100，学术潜力),
-//     "practiceOrientation": 数字(0-100，实践导向),
-//     "analyticalAbility": 数字(0-100，分析能力),
-//     "communication": 数字(0-100，表达与沟通),
-//     "leadership": 数字(0-100，领导力倾向),
-//     "globalMindset": 数字(0-100，国际化发展倾向)
-//   },
-//   "abilityTags": [{"tag": "能力标签", "weight": 数字(0-100，权重), "type": "strength|potential|gap"}],
-//   "longTermSummary": "150-200字长期发展摘要，一句话给出最核心的长期方向判断",
-//   "growthProfileText": "300-350字，写：当前的优势结构；当前的能力特征；当前的发展状态",
-//   "interestDirectionText": "350-450字，写：哪些方向更匹配；为什么匹配；哪些方向需要谨慎；当前兴趣和现实条件是否一致",
-//   "careerPathTree": {
-//     "currentStage": "当前阶段描述（1句话）",
-//     "branches": [
-//       {
-//         "pathName": "路径名称",
-//         "fitScore": 数字(0-100),
-//         "studyPath": "推荐学业路径",
-//         "majorPath": "推荐专业方向",
-//         "careerTarget": "最终职业目标",
-//         "keyMilestones": ["里程碑1", "里程碑2", "里程碑3"]
-//       }
-//     ]
-//   },
-//   "academicCareerText": "450-550字（核心部分），写：哪类专业更适合；哪类职业方向更顺；为什么会做出这样的判断；哪些方向可以先探索后收敛",
-//   "capabilityGaps": [
-//     {"capability": "能力项名称", "currentLevel": 数字(0-100), "requiredLevel": 数字(0-100), "urgency": "high|medium|low", "whyImportant": "50字内为什么重要", "howToImprove": "50字内如何提升"}
-//   ],
-//   "capabilityGapText": "350-450字，写：缺什么；为什么重要；不补会带来什么问题；哪些能力对长期竞争力是关键门槛",
-//   "fiveYearTimeline": [
-//     {"phase": "当前阶段|1年内|2-3年内|3-5年关键节点", "focus": "阶段核心焦点", "keyActions": ["行动1", "行动2"], "expectedOutcome": "预期成果"}
-//   ],
-//   "fiveYearText": "300-400字，按时间轴表达：当前阶段；下一阶段；中长期重点"
-// }`,
-//     },
-//   };
-
   // ---- API Call ----
   async function callQwen(systemPrompt, userPrompt) {
     if (CONFIG.USE_MOCK || !CONFIG.DASHSCOPE_API_KEY) {

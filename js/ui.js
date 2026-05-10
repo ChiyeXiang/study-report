@@ -769,161 +769,179 @@ const UI = (() => {
   function renderFamilyReport(body, data, report) {
     const html = [];
 
-    // 1. 家庭目标雷达图 + 摘要
-    html.push(`
-      <div class="report-section">
-        <div class="report-section-header">
-          <div class="report-section-icon" style="background:#fef9ee">👨‍👩‍👧</div>
-          <div class="report-section-title">家庭战略摘要</div>
-        </div>
-        <div class="report-summary-box" style="margin-bottom:20px">
-          <div class="report-summary-label">家庭教育战略核心判断</div>
-          <div class="report-summary-text">${data.familySummary || data.familyProfile?.educationGoal || ''}</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--gray-500);margin-bottom:12px">家庭教育目标画像</div>
-            ${data.familyGoalRadar ? Object.entries(data.familyGoalRadar).map(([k, v]) => {
-              const dimLabels = { rankOriented: '名校导向', valueOriented: '性价比导向', stabilityOriented: '稳定性导向', globalOriented: '国际化导向', careerOriented: '就业导向', growthOriented: '长期成长导向' };
-              return `<div style="margin-bottom:8px">
-                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:3px">
-                  <span>${dimLabels[k] || k}</span><span style="font-weight:600">${v}</span>
-                </div>
-                <div style="height:5px;background:var(--gray-100);border-radius:99px;overflow:hidden">
-                  <div style="height:100%;width:${v}%;background:var(--gold-400);border-radius:99px"></div>
-                </div>
-              </div>`;
-            }).join('') : ''}
-          </div>
-          <div class="chart-canvas-wrap">
-            <canvas id="familyGoalRadar" width="260" height="260"></canvas>
-          </div>
-        </div>
-      </div>
-    `);
-
-    // 2. 当前家庭决策状态
-    if (data.decisionStateAnalysis) {
+    // 模块1：执行摘要
+    if (data.executiveSummary) {
       html.push(`
         <div class="report-section">
           <div class="report-section-header">
-            <div class="report-section-icon" style="background:#fef2f2">🧭</div>
-            <div class="report-section-title">当前家庭决策状态</div>
+            <div class="report-section-icon" style="background:#fef9ee">📋</div>
+            <div class="report-section-title">执行摘要</div>
           </div>
-          <div style="font-size:14px;color:var(--gray-700);line-height:1.85">${data.decisionStateAnalysis.replace(/\n/g, '<br>')}</div>
+          <div style="font-size:14px;color:var(--gray-700);line-height:1.85">${data.executiveSummary.replace(/\n/g, '<br>')}</div>
         </div>
       `);
     }
 
-    // 3. 亲子目标一致性
-    const sa = data.studentFamilyAlignment || {};
-    const ar = sa.alignmentRadar || {};
-    html.push(`
-      <div class="report-section">
-        <div class="report-section-header">
-          <div class="report-section-icon" style="background:#e8f0f9">🤝</div>
-          <div class="report-section-title">学生特点与家庭目标匹配度</div>
-        </div>
-        ${sa.alignmentText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${sa.alignmentText.replace(/\n/g, '<br>')}</div>` : ''}
-        ${Object.keys(ar).length ? `
+    // 模块2：家庭教育目标画像
+    if (data.familyGoalRadar || data.familyGoalText) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#fef9ee">🎯</div>
+            <div class="report-section-title">家庭教育目标画像</div>
+          </div>
+          ${data.familyGoalText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${data.familyGoalText.replace(/\n/g, '<br>')}</div>` : ''}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
             <div>
-              ${Object.entries(ar).map(([k, v]) => {
-                const labels = { countryChoice: '国家选择', schoolTier: '学校层级', majorDirection: '专业方向', investmentExpect: '投入预期', riskPreference: '风险偏好' };
-                const c = v >= 80 ? 'var(--success)' : v >= 60 ? 'var(--warning)' : 'var(--error)';
+              ${data.familyGoalRadar ? Object.entries(data.familyGoalRadar).map(([k, v]) => {
+                const dimLabels = { rankOriented: '名校导向', valueOriented: '性价比导向', stabilityOriented: '稳定性导向', globalOriented: '国际化导向', careerOriented: '就业导向', growthOriented: '长期成长导向' };
                 return `<div style="margin-bottom:8px">
                   <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:3px">
-                    <span>${labels[k]||k}</span><span style="font-weight:600;color:${c}">${v}%</span>
+                    <span>${dimLabels[k] || k}</span><span style="font-weight:600">${v}</span>
                   </div>
                   <div style="height:5px;background:var(--gray-100);border-radius:99px;overflow:hidden">
-                    <div style="height:100%;width:${v}%;background:${c};border-radius:99px"></div>
+                    <div style="height:100%;width:${v}%;background:var(--gold-400);border-radius:99px"></div>
                   </div>
                 </div>`;
-              }).join('')}
+              }).join('') : ''}
             </div>
-            <div class="chart-canvas-wrap"><canvas id="alignmentRadar" width="240" height="240"></canvas></div>
+            <div class="chart-canvas-wrap">
+              <canvas id="familyGoalRadar" width="260" height="260"></canvas>
+            </div>
           </div>
-        ` : ''}
-      </div>
-    `);
+        </div>
+      `);
+    }
 
-    // 4. 国家路径判断
-    html.push(`
-      <div class="report-section">
-        <div class="report-section-header">
-          <div class="report-section-icon" style="background:#e8f0f9">🌍</div>
-          <div class="report-section-title">国家路径判断</div>
-        </div>
-        ${data.countryPathText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${data.countryPathText.replace(/\n/g, '<br>')}</div>` : ''}
-        <canvas id="countryChart" height="220" style="margin-bottom:20px"></canvas>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          ${(data.countryPathComparison || []).map(c => `
-            <div style="display:flex;align-items:center;gap:16px;padding:16px;border:1px solid var(--gray-100);border-radius:var(--radius-lg)">
-              <div style="width:80px;text-align:center;flex-shrink:0">
-                <div style="font-size:22px;font-weight:700;font-family:var(--font-serif);color:var(--navy-500)">${c.costScore ?? c.overallScore ?? ''}</div>
-                <div style="font-size:11px;color:var(--gray-400)">性价比</div>
-              </div>
-              <div style="width:1px;height:50px;background:var(--gray-100)"></div>
-              <div style="flex:1">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                  <div style="font-size:15px;font-weight:600;color:var(--gray-800)">${c.country}</div>
-                  <span style="padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;background:${c.recommendation === '强烈推荐' ? 'var(--success-light)' : c.recommendation === '推荐' ? 'var(--navy-50)' : 'var(--gray-100)'};color:${c.recommendation === '强烈推荐' ? 'var(--success)' : c.recommendation === '推荐' ? 'var(--navy-500)' : 'var(--gray-500)'}">${c.recommendation}</span>
-                </div>
-                <div style="font-size:12px;color:var(--gray-500)">${c.estimatedCost || ''}</div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-                  ${(c.pros||[]).slice(0,2).map(p=>`<span style="padding:2px 8px;background:var(--success-light);border-radius:99px;font-size:11px;color:var(--success)">+ ${p}</span>`).join('')}
-                  ${(c.cons||[]).slice(0,1).map(p=>`<span style="padding:2px 8px;background:#fef2f2;border-radius:99px;font-size:11px;color:var(--error)">- ${p}</span>`).join('')}
-                </div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `);
-
-    // 5. 家庭资源投入建议
-    const ra = data.resourceAllocation || {};
-    html.push(`
-      <div class="report-section">
-        <div class="report-section-header">
-          <div class="report-section-icon" style="background:#ecfdf5">💰</div>
-          <div class="report-section-title">家庭资源投入建议</div>
-        </div>
-        ${ra.allocationText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${ra.allocationText.replace(/\n/g, '<br>')}</div>` : ''}
-        ${ra.radarData ? `
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;margin-bottom:20px">
-            <div>
-              ${Object.entries(ra.radarData).map(([k,v]) => {
-                const labels = { academicInvest: '学业投入', testInvest: '标化投入', backgroundInvest: '背景提升', globalProjectInvest: '国际项目', longTermPlanInvest: '长期规划' };
-                return `<div style="margin-bottom:8px">
-                  <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:3px">
-                    <span>${labels[k]||k}</span><span style="font-weight:600">${v}</span>
-                  </div>
-                  <div style="height:5px;background:var(--gray-100);border-radius:99px;overflow:hidden">
-                    <div style="height:100%;width:${v}%;background:var(--navy-400);border-radius:99px"></div>
-                  </div>
-                </div>`;
-              }).join('')}
-            </div>
-            <div class="chart-canvas-wrap"><canvas id="resourceRadar" width="240" height="240"></canvas></div>
+    // 模块3：学生画像与亲子目标一致性分析
+    if (data.studentProfileText || data.alignmentRadar || data.alignmentText) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#e8f0f9">🤝</div>
+            <div class="report-section-title">学生画像与亲子目标一致性分析</div>
           </div>
-        ` : ''}
-        ${(ra.budgetMilestones || ra.budgetAllocation || data.resourceAllocation?.budgetAllocation || []).length ? `
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--gray-500);margin-bottom:10px">预算里程碑</div>
-            ${(ra.budgetMilestones || ra.budgetAllocation || []).map(b => `
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;background:var(--gray-50);border-radius:var(--radius-lg)">
-                <div style="width:8px;height:8px;border-radius:50%;background:${b.priority==='high'?'var(--error)':b.priority==='medium'?'var(--warning)':'var(--success)'};flex-shrink:0"></div>
-                <div style="flex:1;font-size:13px;color:var(--gray-700)">${b.phase}：${b.item}</div>
-                <div style="font-size:13px;font-weight:600;color:var(--navy-500)">${b.amount}</div>
+          ${data.studentProfileText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${data.studentProfileText.replace(/\n/g, '<br>')}</div>` : ''}
+          ${data.alignmentText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${data.alignmentText.replace(/\n/g, '<br>')}</div>` : ''}
+          ${data.alignmentRadar ? `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
+              <div>
+                ${Object.entries(data.alignmentRadar).map(([k, v]) => {
+                  const labels = { countryChoice: '国家选择', schoolTier: '学校层级', majorDirection: '专业方向', investmentExpect: '投入强度', riskPreference: '风险偏好' };
+                  const c = v >= 80 ? 'var(--success)' : v >= 60 ? 'var(--warning)' : 'var(--error)';
+                  return `<div style="margin-bottom:8px">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:3px">
+                      <span>${labels[k]||k}</span><span style="font-weight:600;color:${c}">${v}%</span>
+                    </div>
+                    <div style="height:5px;background:var(--gray-100);border-radius:99px;overflow:hidden">
+                      <div style="height:100%;width:${v}%;background:${c};border-radius:99px"></div>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="alignmentRadar" width="240" height="240"></canvas></div>
+            </div>
+          ` : ''}
+        </div>
+      `);
+    }
+
+    // 模块4：国家/地区路径判断
+    if (data.countryPathComparison || data.countryPathText) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#e8f0f9">🌍</div>
+            <div class="report-section-title">国家/地区路径判断</div>
+          </div>
+          ${data.countryPathText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${data.countryPathText.replace(/\n/g, '<br>')}</div>` : ''}
+          <canvas id="countryChart" height="220" style="margin-bottom:20px"></canvas>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${(data.countryPathComparison || []).map(c => `
+              <div style="display:flex;align-items:center;gap:16px;padding:16px;border:1px solid var(--gray-100);border-radius:var(--radius-lg)">
+                <div style="width:80px;text-align:center;flex-shrink:0">
+                  <div style="font-size:22px;font-weight:700;font-family:var(--font-serif);color:var(--navy-500)">${c.costScore ?? ''}</div>
+                  <div style="font-size:11px;color:var(--gray-400)">性价比</div>
+                </div>
+                <div style="width:1px;height:50px;background:var(--gray-100)"></div>
+                <div style="flex:1">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <div style="font-size:15px;font-weight:600;color:var(--gray-800)">${c.country}</div>
+                    <span style="padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;background:${c.recommendation === '优先推荐' ? 'var(--success-light)' : c.recommendation === '补充参考' ? 'var(--navy-50)' : 'var(--gray-100)'};color:${c.recommendation === '优先推荐' ? 'var(--success)' : c.recommendation === '补充参考' ? 'var(--navy-500)' : 'var(--gray-500)'}">${c.recommendation}</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--gray-500)">${c.estimatedCost || ''}</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                    ${(c.pros||[]).slice(0,2).map(p=>`<span style="padding:2px 8px;background:var(--success-light);border-radius:99px;font-size:11px;color:var(--success)">+ ${p}</span>`).join('')}
+                    ${(c.cons||[]).slice(0,1).map(p=>`<span style="padding:2px 8px;background:#fef2f2;border-radius:99px;font-size:11px;color:var(--error)">- ${p}</span>`).join('')}
+                  </div>
+                </div>
               </div>
             `).join('')}
           </div>
-        ` : ''}
-      </div>
-    `);
+        </div>
+      `);
+    }
 
-    // 6. 结语
+    // 模块5：家庭资源投入建议
+    if (data.resourceRadar || data.resourceText || (data.budgetMilestones || []).length) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#ecfdf5">💰</div>
+            <div class="report-section-title">家庭资源投入建议</div>
+          </div>
+          ${data.resourceText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:20px">${data.resourceText.replace(/\n/g, '<br>')}</div>` : ''}
+          ${data.resourceRadar ? `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;margin-bottom:20px">
+              <div>
+                ${Object.entries(data.resourceRadar).map(([k,v]) => {
+                  const labels = { academicInvest: '学业投入', testInvest: '标化投入', backgroundInvest: '背景提升', globalProjectInvest: '国际项目', longTermPlanInvest: '长期规划' };
+                  return `<div style="margin-bottom:8px">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:3px">
+                      <span>${labels[k]||k}</span><span style="font-weight:600">${v}</span>
+                    </div>
+                    <div style="height:5px;background:var(--gray-100);border-radius:99px;overflow:hidden">
+                      <div style="height:100%;width:${v}%;background:var(--navy-400);border-radius:99px"></div>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+              <div class="chart-canvas-wrap"><canvas id="resourceRadar" width="240" height="240"></canvas></div>
+            </div>
+          ` : ''}
+          ${(data.budgetMilestones || []).length ? `
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--gray-500);margin-bottom:10px">预算里程碑</div>
+              ${data.budgetMilestones.map(b => `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;background:var(--gray-50);border-radius:var(--radius-lg)">
+                  <div style="width:8px;height:8px;border-radius:50%;background:${b.priority==='high'?'var(--error)':b.priority==='medium'?'var(--warning)':'var(--success)'};flex-shrink:0"></div>
+                  <div style="flex:1;font-size:13px;color:var(--gray-700)">${b.phase}：${b.item}</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--navy-500)">${b.amount}</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `);
+    }
+
+    // 模块6：当前最关键的家庭决策问题
+    if (data.keyDecision) {
+      const kd = data.keyDecision;
+      html.push(`
+        <div class="report-section" style="background:var(--gray-50);border-left:4px solid var(--navy-500)">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#e8f0f9">🧭</div>
+            <div class="report-section-title">当前最关键的家庭决策问题</div>
+          </div>
+          <div style="font-size:16px;font-weight:600;color:var(--navy-500);margin-bottom:16px">${kd.coreQuestion || ''}</div>
+          ${kd.riskIfNotSolved ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:16px"><span style="font-weight:600;color:var(--error)">如不及时解决：</span>${kd.riskIfNotSolved.replace(/\n/g, '<br>')}</div>` : ''}
+          ${kd.nextAction ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85"><span style="font-weight:600;color:var(--success)">建议下一步：</span>${kd.nextAction.replace(/\n/g, '<br>')}</div>` : ''}
+        </div>
+      `);
+    }
+
+    // 模块7：结语与代金券引导
     if (data.conclusion) {
       html.push(`
         <div class="report-section" style="background:linear-gradient(135deg,var(--navy-900),var(--navy-800));border-radius:var(--radius-2xl)">
@@ -938,9 +956,9 @@ const UI = (() => {
     body.innerHTML = html.join('');
     setTimeout(() => {
       renderFamilyGoalRadar(data.familyGoalRadar);
-      renderAlignmentRadar(data.studentFamilyAlignment?.alignmentRadar);
+      renderAlignmentRadar(data.alignmentRadar);
       renderCountryChart(data.countryPathComparison);
-      renderResourceRadar(data.resourceAllocation?.radarData);
+      renderResourceRadar(data.resourceRadar);
     }, 100);
   }
 
@@ -1338,9 +1356,9 @@ const UI = (() => {
       data: {
         labels: (countries || []).map(c => c.country),
         datasets: [
-          { label: '性价比', data: (countries||[]).map(c => c.costScore ?? c.overallScore ?? 0), backgroundColor: 'rgba(22,163,74,0.7)', borderRadius: 4 },
-          { label: '门槛可达度', data: (countries||[]).map(c => c.thresholdScore ?? c.fitScore ?? 0), backgroundColor: 'rgba(36,84,160,0.7)', borderRadius: 4 },
-          { label: '就业连接度', data: (countries||[]).map(c => c.careerScore ?? c.employmentScore ?? 0), backgroundColor: 'rgba(184,137,30,0.7)', borderRadius: 4 },
+          { label: '性价比', data: (countries||[]).map(c => c.costScore ?? 0), backgroundColor: 'rgba(22,163,74,0.7)', borderRadius: 4 },
+          { label: '门槛可达度', data: (countries||[]).map(c => c.thresholdScore ?? 0), backgroundColor: 'rgba(36,84,160,0.7)', borderRadius: 4 },
+          { label: '家庭适配度', data: (countries||[]).map(c => c.familyFitScore ?? c.careerScore ?? 0), backgroundColor: 'rgba(184,137,30,0.7)', borderRadius: 4 },
         ],
       },
       options: {
