@@ -977,6 +977,152 @@ ul, ol { list-style: none; }
 }
 
 /* ==============================
+   LIZHIHUI INTEGRATION
+   ============================== */
+.lizhihui-section {
+  padding: var(--space-24) 0;
+  background: var(--white);
+}
+.integration-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  align-items: stretch;
+}
+.integration-panel {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-8);
+}
+.integration-panel.dark {
+  background: linear-gradient(145deg, var(--navy-900), var(--navy-800));
+  border-color: var(--navy-700);
+  color: var(--white);
+}
+.integration-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--gold-500);
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+.integration-panel.dark .integration-kicker { color: var(--gold-300); }
+.integration-panel h3 {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: var(--space-5);
+}
+.integration-panel.dark h3 { color: var(--white); }
+.integration-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.integration-flow div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 14px;
+  color: rgba(255,255,255,0.72);
+}
+.integration-flow span {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(232,196,90,0.16);
+  color: var(--gold-300);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.api-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.api-list div {
+  padding: var(--space-4);
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+}
+.api-list code {
+  display: block;
+  font-size: 13px;
+  color: var(--navy-500);
+  margin-bottom: var(--space-2);
+}
+.api-list p {
+  font-size: 13px;
+  color: var(--gray-500);
+  line-height: 1.6;
+}
+.subscription-note {
+  margin-top: var(--space-6);
+  padding: var(--space-6);
+  background: var(--navy-50);
+  border: 1px solid var(--navy-100);
+  border-radius: var(--radius-2xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+.subscription-note strong { color: var(--navy-600); }
+.service-integration-summary {
+  max-width: 900px;
+  margin: 0 auto var(--space-8);
+  padding: var(--space-8);
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-2xl);
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: var(--space-8);
+}
+.service-integration-summary h2 {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: var(--space-3);
+}
+.service-integration-summary p {
+  font-size: 14px;
+  color: var(--gray-500);
+  line-height: 1.75;
+}
+.service-package-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+.service-package-grid div {
+  padding: var(--space-4);
+  background: var(--gray-50);
+  border-radius: var(--radius-lg);
+}
+.service-package-grid strong {
+  display: block;
+  font-size: 14px;
+  color: var(--gray-800);
+  margin-bottom: 4px;
+}
+.service-package-grid span {
+  font-size: 12px;
+  color: var(--gray-500);
+  line-height: 1.5;
+}
+
+/* ==============================
    MODALS & OVERLAYS
    ============================== */
 .modal-overlay {
@@ -2003,6 +2149,8 @@ ul, ol { list-style: none; }
   .process-steps { grid-template-columns: repeat(4, 1fr); }
   .process-steps::before { display: none; }
   .services-grid { grid-template-columns: 1fr; }
+  .integration-grid { grid-template-columns: 1fr; }
+  .service-integration-summary { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .school-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -2019,6 +2167,8 @@ ul, ol { list-style: none; }
   .account-main { padding: var(--space-5) var(--space-4); }
   .school-grid { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
+  .subscription-note { flex-direction: column; align-items: flex-start; }
+  .integration-panel { padding: var(--space-6); }
 }
 
 /* ==============================

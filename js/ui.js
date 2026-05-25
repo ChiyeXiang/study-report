@@ -60,21 +60,22 @@ const UI = (() => {
     document.getElementById(id).classList.remove('active');
   }
 
-  function handleRegister(e) {
+  async function handleRegister(e) {
     e.preventDefault();
     const name = document.getElementById('regName').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
     const phone = document.getElementById('regPhone').value.trim();
-    if (!name || !email || !password) {
+    const verificationCode = document.getElementById('regCode').value.trim();
+    if (!name || !phone || !verificationCode) {
       toast('请填写所有必填项', 'error');
       return;
     }
-    if (password.length < 6) {
+    if (password && password.length < 6) {
       toast('密码至少需要 6 位', 'error');
       return;
     }
-    const result = APP.register(name, email, password, phone);
+    const result = await APP.register(name, email, password, phone, verificationCode);
     if (result.ok) {
       hideModal('modalRegister');
       updateNav();
@@ -99,15 +100,15 @@ const UI = (() => {
     }
   }
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    if (!email || !password) {
-      toast('请填写邮箱和密码', 'error');
+    const phone = document.getElementById('loginPhone').value.trim();
+    const verificationCode = document.getElementById('loginCode').value.trim();
+    if (!phone || !verificationCode) {
+      toast('请填写手机号和验证码', 'error');
       return;
     }
-    const result = APP.login(email, password);
+    const result = await APP.login(phone, '', verificationCode);
     if (result.ok) {
       hideModal('modalLogin');
       updateNav();
@@ -129,6 +130,27 @@ const UI = (() => {
       }
     } else {
       toast(result.msg, 'error');
+    }
+  }
+
+  async function sendRegisterCode() {
+    const phone = document.getElementById('regPhone').value.trim();
+    if (!phone) return toast('请先填写手机号', 'error');
+    await sendCode(phone, 'register');
+  }
+
+  async function sendLoginCode() {
+    const phone = document.getElementById('loginPhone').value.trim();
+    if (!phone) return toast('请先填写手机号', 'error');
+    await sendCode(phone, 'login');
+  }
+
+  async function sendCode(phone, purpose) {
+    try {
+      const result = await APP.sendVerificationCode(phone, purpose);
+      toast(result.mockCode ? `验证码已生成：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
+    } catch (err) {
+      toast(err?.message || '验证码发送失败，请稍后重试', 'error');
     }
   }
 
@@ -469,13 +491,13 @@ const UI = (() => {
 
       await delay(600);
 
-      // Show voucher notification
-      toast(`🎉 报告生成完成！已向您账户发放 ¥${voucher.amount} 代金券`, 'success', 5000);
+      // Show completion notification
+      toast(voucher ? `🎉 报告生成完成！已向您账户发放 ¥${voucher.amount} 代金券` : '🎉 报告生成完成！本次已使用您的报告权益', 'success', 5000);
 
       // Navigate to report page
       showPage('report', { reportId: report.id });
     } catch(err) {
-      toast('报告生成遇到问题，请稍后重试', 'error');
+      toast(err?.message || '报告生成遇到问题，请稍后重试', 'error');
       stepEls[lastIdx].classList.remove('active');
     }
   }
@@ -485,8 +507,15 @@ const UI = (() => {
   }
 
   // ---- Report Page ----
-  function renderReportPage(reportId) {
-    const report = APP.state.reports.find(r => r.id === reportId);
+  async function renderReportPage(reportId) {
+    let report = APP.state.reports.find(r => r.id === reportId);
+    if (!report || !report.reportData) {
+      try {
+        report = await APP.fetchReport(reportId);
+      } catch (e) {
+        toast(e.message || '报告加载失败', 'error');
+      }
+    }
     if (!report) {
       showPage('home');
       return;
@@ -1481,7 +1510,7 @@ const UI = (() => {
   }
 
   // ---- Account Page ----
-  function renderAccount(section = 'overview') {
+  async function renderAccount(section = 'overview') {
     if (!APP.isLoggedIn()) {
       showModal('modalLogin');
       return;
@@ -1491,6 +1520,11 @@ const UI = (() => {
     document.getElementById('accountEmail').textContent = user.email;
     document.getElementById('accountAvatarLetter').textContent = user.name.substring(0, 1);
 
+    try {
+      await APP.fetchAccountSummary();
+    } catch (e) {
+      toast(e.message || '账户数据加载失败', 'warning');
+    }
     renderHistoryReports();
     renderVouchers();
 
@@ -1533,31 +1567,57 @@ const UI = (() => {
 
   function renderVouchers() {
     const container = document.getElementById('vouchersList');
+    const subscriptionEl = document.getElementById('subscriptionStatus');
+    if (subscriptionEl) {
+      const sub = APP.state.subscription;
+      subscriptionEl.innerHTML = sub
+        ? `<div style="padding:14px 16px;background:var(--success-light);border-radius:var(--radius-xl);font-size:14px;color:var(--success);font-weight:600">当前会员有效期至：${new Date(sub.endTime || sub.end_time).toLocaleDateString('zh-CN')} · 本月不限次数生成报告</div>`
+        : `<div style="padding:14px 16px;background:var(--gray-50);border-radius:var(--radius-xl);font-size:13px;color:var(--gray-500)">当前暂无有效会员，可使用报告权益券或兑换会员码。</div>`;
+    }
     const vouchers = APP.state.vouchers;
     if (!vouchers.length) {
-      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)">暂无代金券，生成报告后将自动发放</div>';
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)">暂无可用权益，请输入兑换码或通过荔智惠购买权益。</div>';
       return;
     }
     container.innerHTML = vouchers.map(v => {
-      const exp = new Date(v.expiresAt).toLocaleDateString('zh-CN');
-      const isExpired = new Date(v.expiresAt) < new Date();
+      const exp = v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('zh-CN') : '长期有效';
+      const isExpired = v.expiresAt ? new Date(v.expiresAt) < new Date() : false;
+      const sourceLabel = v.source === 'lizhihui' ? '荔智惠权益' : v.source === 'redemption_code' ? '兑换码权益' : '平台权益';
+      const sourceMeta = v.partnerOrderId ? ` · 订单 ${v.partnerOrderId}` : '';
       return `
         <div class="voucher-card" style="margin-bottom:16px;${isExpired ? 'opacity:0.5' : ''}">
           <div class="voucher-amount">
-            <div class="voucher-amount-num"><span class="voucher-amount-unit">¥</span>${v.amount}</div>
-            <div class="voucher-amount-label">代金券</div>
+            <div class="voucher-amount-num">${v.remainingQuantity ?? v.amount ?? 1}</div>
+            <div class="voucher-amount-label">次权益</div>
           </div>
           <div class="voucher-divider"></div>
           <div class="voucher-info">
-            <div class="voucher-title">全球留学战略咨询</div>
-            <div class="voucher-desc">可用于 Global Study Abroad Strategy Session · 45分钟</div>
-            <div class="voucher-code">🎫 ${v.code}</div>
+            <div class="voucher-title">${v.service || '全球留学战略咨询'}</div>
+            <div class="voucher-desc">${sourceLabel}${sourceMeta}</div>
+            <div class="voucher-code">权益码 ${v.code}</div>
             <div class="voucher-expiry">有效期至：${exp}${isExpired ? ' · 已过期' : ''}</div>
           </div>
-          ${!isExpired ? `<button class="btn btn-gold btn-sm" onclick="UI.goToMiniProgram()">前往使用</button>` : ''}
+          ${!isExpired ? `<button class="btn btn-gold btn-sm" onclick="handleStartAssessment()">去生成报告</button>` : ''}
         </div>
       `;
     }).join('');
+  }
+
+  async function redeemCode() {
+    const input = document.getElementById('redeemCodeInput');
+    const code = input?.value.trim();
+    if (!code) {
+      toast('请输入兑换码', 'warning');
+      return;
+    }
+    try {
+      await APP.redeemCode(code);
+      input.value = '';
+      toast('兑换成功，权益已到账', 'success');
+      renderVouchers();
+    } catch (e) {
+      toast(e.message || '兑换失败，请检查兑换码', 'error');
+    }
   }
 
   function viewReport(reportId) {
@@ -1572,6 +1632,18 @@ const UI = (() => {
       // 这里弹出说明
       document.getElementById('modalMiniProgram').classList.add('active');
     }, 800);
+  }
+
+  function claimLizhihuiVoucher(productId) {
+    const result = APP.claimLizhihuiVoucher(productId);
+    if (!result.ok) {
+      toast(result.msg, 'warning');
+      showModal('modalRegister');
+      return;
+    }
+    toast(result.msg, 'success');
+    renderVouchers();
+    setTimeout(() => showPage('account', { section: 'vouchers' }), 500);
   }
 
   // ---- Score Label ----
@@ -1608,6 +1680,8 @@ const UI = (() => {
     hideModal,
     handleRegister,
     handleLogin,
+    sendRegisterCode,
+    sendLoginCode,
     renderQuestionnaire,
     qNext,
     qPrev,
@@ -1615,8 +1689,10 @@ const UI = (() => {
     switchAccountSection,
     renderHistoryReports,
     renderVouchers,
+    redeemCode,
     viewReport,
     goToMiniProgram,
+    claimLizhihuiVoucher,
     switchAuthorityTab,
   };
 })();

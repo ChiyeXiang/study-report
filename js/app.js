@@ -4,14 +4,14 @@
  */
 
 const APP = (() => {
+  const memoryStore = new Map();
+
   // ---- Config ----
   const CONFIG = {
-    // 阿里云百炼 API Key（国内版）
-    DASHSCOPE_API_KEY: 'sk-730b6bde7ae64f81beefbbb9a5bcc6df',
-    // 国内版 endpoint
-    API_BASE: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    // 正式上线时前端只调用自己的后端，通义千问 API Key 必须放在后端。
+    BACKEND_API_BASE: window.GPN_CONFIG?.BACKEND_API_BASE || '',
     MODEL: 'qwen-plus',
-    USE_MOCK: false, // 已配置真实 API Key
+    USE_MOCK: window.GPN_CONFIG?.USE_MOCK ?? true,
   };
 
   // ---- State ----
@@ -25,7 +25,16 @@ const APP = (() => {
     },
     reports: [],
     vouchers: [],
+    authToken: null,
   };
+
+  function backendEnabled() {
+    return !!CONFIG.BACKEND_API_BASE || CONFIG.USE_MOCK === false;
+  }
+
+  function apiUrl(path) {
+    return `${CONFIG.BACKEND_API_BASE || ''}${path}`;
+  }
 
   // ---- LocalStorage helpers ----
   function saveState() {
@@ -33,7 +42,13 @@ const APP = (() => {
       localStorage.setItem('gpn_user', JSON.stringify(state.user));
       localStorage.setItem('gpn_reports', JSON.stringify(state.reports));
       localStorage.setItem('gpn_vouchers', JSON.stringify(state.vouchers));
-    } catch(e) {}
+      localStorage.setItem('gpn_auth_token', state.authToken || '');
+    } catch(e) {
+      memoryStore.set('gpn_user', JSON.stringify(state.user));
+      memoryStore.set('gpn_reports', JSON.stringify(state.reports));
+      memoryStore.set('gpn_vouchers', JSON.stringify(state.vouchers));
+      memoryStore.set('gpn_auth_token', state.authToken || '');
+    }
   }
 
   function loadState() {
@@ -41,24 +56,73 @@ const APP = (() => {
       const u = localStorage.getItem('gpn_user');
       const r = localStorage.getItem('gpn_reports');
       const v = localStorage.getItem('gpn_vouchers');
+      const t = localStorage.getItem('gpn_auth_token');
       if (u) state.user = JSON.parse(u);
       if (r) state.reports = JSON.parse(r);
       if (v) state.vouchers = JSON.parse(v);
-    } catch(e) {}
+      if (t) state.authToken = t;
+    } catch(e) {
+      const u = memoryStore.get('gpn_user');
+      const r = memoryStore.get('gpn_reports');
+      const v = memoryStore.get('gpn_vouchers');
+      const t = memoryStore.get('gpn_auth_token');
+      if (u) state.user = JSON.parse(u);
+      if (r) state.reports = JSON.parse(r);
+      if (v) state.vouchers = JSON.parse(v);
+      if (t) state.authToken = t;
+    }
   }
 
   // ---- Mock accounts (pre-seeded) ----
   function getUsers() {
-    const stored = localStorage.getItem('gpn_users');
-    if (stored) return JSON.parse(stored);
+    try {
+      const stored = localStorage.getItem('gpn_users');
+      if (stored) return JSON.parse(stored);
+    } catch(e) {
+      const stored = memoryStore.get('gpn_users');
+      if (stored) return JSON.parse(stored);
+    }
     return [];
   }
   function saveUsers(users) {
-    localStorage.setItem('gpn_users', JSON.stringify(users));
+    const payload = JSON.stringify(users);
+    try {
+      localStorage.setItem('gpn_users', payload);
+    } catch(e) {
+      memoryStore.set('gpn_users', payload);
+    }
   }
 
   // ---- Auth ----
-  function register(name, email, password, phone) {
+  async function sendVerificationCode(phone, purpose) {
+    if (!backendEnabled()) {
+      return { success: true, mockCode: '123456' };
+    }
+    return apiRequest('/api/v1/auth/send-code', {
+      method: 'POST',
+      body: JSON.stringify({ phone, purpose }),
+    });
+  }
+
+  async function register(name, email, password, phone, verificationCode) {
+    if (backendEnabled()) {
+      try {
+        const response = await fetch(apiUrl('/api/v1/auth/register'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, phone, verificationCode }),
+        });
+        const result = await response.json();
+        if (!response.ok) return { ok: false, msg: result.error || '注册失败，请稍后重试' };
+        state.user = result.user;
+        state.authToken = result.token;
+        saveState();
+        return { ok: true };
+      } catch(e) {
+        return { ok: false, msg: '后端服务暂时无法连接，请稍后重试' };
+      }
+    }
+
     const users = getUsers();
     if (users.find(u => u.email === email)) {
       return { ok: false, msg: '该邮箱已注册，请直接登录' };
@@ -76,9 +140,44 @@ const APP = (() => {
     return { ok: true };
   }
 
-  function login(email, password) {
+  async function apiRequest(path, options = {}) {
+    if (!backendEnabled()) throw new Error('Backend API is not configured');
+    const response = await fetch(apiUrl(path), {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `API error ${response.status}`);
+    return data;
+  }
+
+  async function login(login, password, verificationCode) {
+    if (backendEnabled()) {
+      try {
+        const response = await fetch(apiUrl('/api/v1/auth/login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(verificationCode
+            ? { phone: login, verificationCode }
+            : { email: login, password }),
+        });
+        const result = await response.json();
+        if (!response.ok) return { ok: false, msg: result.error || '登录失败，请稍后重试' };
+        state.user = result.user;
+        state.authToken = result.token;
+        saveState();
+        return { ok: true };
+      } catch(e) {
+        return { ok: false, msg: '后端服务暂时无法连接，请稍后重试' };
+      }
+    }
+
     const users = getUsers();
-    const user = users.find(u => u.email === email && u.password === password);
+    const user = users.find(u => (u.email === login || u.phone === login) && (verificationCode || u.password === password));
     if (!user) return { ok: false, msg: '邮箱或密码错误，请重试' };
     state.user = { ...user };
     delete state.user.password;
@@ -88,11 +187,124 @@ const APP = (() => {
 
   function logout() {
     state.user = null;
+    state.authToken = null;
     saveState();
   }
 
   function isLoggedIn() {
     return !!state.user;
+  }
+
+  async function fetchAccountSummary() {
+    if (!backendEnabled() || !state.authToken) {
+      return {
+        reports: state.reports,
+        entitlements: state.vouchers,
+        subscription: null,
+      };
+    }
+    const data = await apiRequest('/api/v1/account/summary');
+    state.reports = (data.reports || []).map(r => ({
+      id: r.id,
+      type: r.report_type || r.reportType,
+      typeInfo: REPORT_TYPES[r.report_type || r.reportType] || REPORT_TYPES.competitiveness,
+      createdAt: r.created_at || r.createdAt,
+      reportData: null,
+      status: r.status,
+    }));
+    state.vouchers = (data.entitlements || []).map(e => ({
+      id: e.id,
+      code: e.external_order_id || e.id,
+      amount: e.remaining_quantity || 0,
+      status: e.status,
+      source: e.source,
+      service: e.entitlement_type === 'report_once' ? '任意 AI 报告生成权益' : e.entitlement_type,
+      expiresAt: e.expires_at || e.expiresAt,
+      remainingQuantity: e.remaining_quantity,
+    }));
+    state.subscription = data.subscription || null;
+    saveState();
+    return data;
+  }
+
+  async function redeemCode(code) {
+    const data = await apiRequest('/api/v1/redemptions/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    await fetchAccountSummary();
+    return data;
+  }
+
+  async function fetchReport(reportId) {
+    if (!backendEnabled() || !state.authToken) {
+      return state.reports.find(r => r.id === reportId);
+    }
+    const data = await apiRequest(`/api/v1/reports/${reportId}`);
+    const r = data.report;
+    const report = {
+      id: r.id,
+      type: r.reportType,
+      typeInfo: REPORT_TYPES[r.reportType] || REPORT_TYPES.competitiveness,
+      createdAt: r.createdAt,
+      questionnaireData: {},
+      reportData: r.reportData || r.fullContentJson || {},
+      status: r.status,
+    };
+    const idx = state.reports.findIndex(item => item.id === reportId);
+    if (idx >= 0) state.reports[idx] = report;
+    else state.reports.unshift(report);
+    saveState();
+    return report;
+  }
+
+  // ---- Lizhihui Voucher Integration Demo ----
+  const LIZHIHUI_PRODUCTS = [
+    {
+      id: 'lzh_ai_report_trial',
+      name: 'AI 报告免费体验券',
+      amount: 100,
+      service: 'AI 升学报告体验权益',
+      desc: '用户在荔智惠小程序领取后，可在本平台兑换一次 AI 报告体验权益。',
+    },
+    {
+      id: 'lzh_strategy_session',
+      name: '全球留学战略咨询抵扣券',
+      amount: 150,
+      service: 'Global Study Abroad Strategy Session｜全球留学战略咨询',
+      desc: '用户完成报告后，可在荔智惠小程序预约咨询时抵扣使用。',
+    },
+  ];
+
+  function claimLizhihuiVoucher(productId = 'lzh_ai_report_trial') {
+    if (!state.user) {
+      return { ok: false, msg: '请先登录或注册账户，再模拟领取荔智惠权益券' };
+    }
+    const product = LIZHIHUI_PRODUCTS.find(p => p.id === productId) || LIZHIHUI_PRODUCTS[0];
+    const orderId = 'LZH-' + Date.now();
+    const existing = state.vouchers.find(v => v.partnerOrderId === orderId);
+    if (existing) return { ok: true, voucher: existing, msg: '该权益券已领取' };
+
+    const voucher = {
+      id: 'v_lzh_' + Date.now(),
+      code: 'LZH-GPN-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+      amount: product.amount,
+      reportId: null,
+      reportType: null,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'active',
+      service: product.service,
+      source: 'lizhihui',
+      sourceName: '荔智惠小程序',
+      partnerUserId: 'lzh_demo_' + state.user.id,
+      partnerProductId: product.id,
+      partnerOrderId: orderId,
+      claimChannel: 'api_demo',
+    };
+    state.vouchers.unshift(voucher);
+    saveState();
+    return { ok: true, voucher, msg: '荔智惠权益券已发放到当前账户' };
   }
 
   // ---- Report Type Definitions ----
@@ -2159,41 +2371,35 @@ ${expDetails}
   };
   // ---- API Call ----
   async function callQwen(systemPrompt, userPrompt) {
-    if (CONFIG.USE_MOCK || !CONFIG.DASHSCOPE_API_KEY) {
+    if (CONFIG.USE_MOCK) {
       // Mock 模式：返回预设的结构化数据
       return generateMockReportData(userPrompt);
     }
 
-    try {
-      const response = await fetch(`${CONFIG.API_BASE}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${CONFIG.DASHSCOPE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: CONFIG.MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 4000,
-          response_format: { type: 'json_object' },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+    if (backendEnabled()) {
+      try {
+        const response = await fetch(apiUrl('/api/v1/ai/qwen-json'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {}),
+          },
+          body: JSON.stringify({
+            model: CONFIG.MODEL,
+            systemPrompt,
+            userPrompt,
+          }),
+        });
+        if (!response.ok) throw new Error(`Backend API error: ${response.status}`);
+        const result = await response.json();
+        return result.data || result;
+      } catch(e) {
+        console.error('Backend report API error:', e);
+        throw e;
       }
-
-      const result = await response.json();
-      const content = result.choices[0].message.content;
-      return JSON.parse(content);
-    } catch(e) {
-      console.error('Qwen API error:', e);
-      return generateMockReportData(userPrompt);
     }
+
+    return generateMockReportData(userPrompt);
   }
 
   // ---- Mock Report Data Generator ----
@@ -2487,11 +2693,43 @@ ${expDetails}
     const userPrompt = template.buildPrompt(questionnaireData);
 
     // Step 1: Structured data extraction
-    const reportData = await callQwen(template.systemPrompt, userPrompt);
+    let reportData;
+    let backendReportId = null;
+    const usedBackend = backendEnabled() && state.authToken;
+    if (backendEnabled() && !state.authToken) {
+      throw new Error('请先登录账户后再生成报告');
+    }
+    if (usedBackend) {
+      try {
+        const response = await fetch(apiUrl('/api/v1/reports'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${state.authToken}`,
+          },
+          body: JSON.stringify({
+            reportType,
+            questionnaireData,
+            model: CONFIG.MODEL,
+            systemPrompt: template.systemPrompt,
+            userPrompt,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Report API error');
+        reportData = result.report.reportData;
+        backendReportId = result.report.id;
+      } catch(e) {
+        console.error('Backend report generation error:', e);
+        throw e;
+      }
+    } else {
+      reportData = await callQwen(template.systemPrompt, userPrompt);
+    }
 
     // Step 2: Save report
     const report = {
-      id: 'r_' + Date.now(),
+      id: backendReportId || 'r_' + Date.now(),
       type: reportType,
       typeInfo: REPORT_TYPES[reportType],
       createdAt: new Date().toISOString(),
@@ -2501,6 +2739,11 @@ ${expDetails}
     };
 
     state.reports.unshift(report);
+
+    if (usedBackend) {
+      saveState();
+      return { report, voucher: null };
+    }
 
     // Step 3: Issue voucher
     const voucherAmount = REPORT_TYPES[reportType].voucherAmount;
@@ -2567,6 +2810,7 @@ ${expDetails}
     CONFIG,
     state,
     REPORT_TYPES,
+    LIZHIHUI_PRODUCTS,
     QUESTIONNAIRE_STEPS,
     QUESTIONNAIRE_STEPS_MAP,
     getQuestionnaireSteps,
@@ -2577,6 +2821,12 @@ ${expDetails}
     login,
     logout,
     isLoggedIn,
+    claimLizhihuiVoucher,
+    fetchAccountSummary,
+    redeemCode,
+    sendVerificationCode,
+    fetchReport,
+    apiRequest,
     generateReport,
   };
 })();
