@@ -151,8 +151,25 @@ const APP = (() => {
       },
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `API error ${response.status}`);
+    if (!response.ok) throw createApiError(response, data);
     return data;
+  }
+
+  function createApiError(response, data = {}) {
+    const message = response.status === 401
+      ? '登录已过期，请重新登录'
+      : (data.error || `API error ${response.status}`);
+    const error = new Error(message);
+    error.status = response.status;
+    error.code = response.status === 401 ? 'UNAUTHORIZED' : 'API_ERROR';
+    if (response.status === 401) clearAuthState();
+    return error;
+  }
+
+  function clearAuthState() {
+    state.user = null;
+    state.authToken = null;
+    saveState();
   }
 
   async function login(login, password, verificationCode) {
@@ -2731,7 +2748,7 @@ ${expDetails}
           }),
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Report API error');
+        if (!response.ok) throw createApiError(response, result);
         reportData = normalizeReportData(reportType, result.report.reportData);
         backendReportId = result.report.id;
       } catch(e) {

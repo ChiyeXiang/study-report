@@ -480,6 +480,10 @@ const UI = (() => {
       }
     } catch (err) {
       const message = err?.message || '';
+      if (err?.code === 'UNAUTHORIZED' || err?.status === 401 || message.includes('登录已过期') || message.includes('Unauthorized')) {
+        handleUnauthorized();
+        return;
+      }
       if (message.includes('权益') || message.includes('会员') || message.includes('402')) {
         openEntitlementRequiredModal(message);
         return;
@@ -545,7 +549,9 @@ const UI = (() => {
     } catch(err) {
       stepEls[lastIdx].classList.remove('active');
       const message = err?.message || '报告生成遇到问题，请稍后重试';
-      if (message.includes('权益') || message.includes('会员') || message.includes('402')) {
+      if (err?.code === 'UNAUTHORIZED' || err?.status === 401 || message.includes('登录已过期') || message.includes('Unauthorized')) {
+        handleUnauthorized();
+      } else if (message.includes('权益') || message.includes('会员') || message.includes('402')) {
         openEntitlementRequiredModal(message);
       } else {
         toast(message, 'error');
@@ -555,6 +561,12 @@ const UI = (() => {
 
   function delay(ms) {
     return new Promise(res => setTimeout(res, ms));
+  }
+
+  function handleUnauthorized() {
+    toast('登录已过期，请重新登录', 'error');
+    updateNav();
+    showModal('modalLogin');
   }
 
   // ---- Report Page ----
