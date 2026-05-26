@@ -124,8 +124,8 @@ const APP = (() => {
     }
 
     const users = getUsers();
-    if (users.find(u => u.email === email)) {
-      return { ok: false, msg: '该邮箱已注册，请直接登录' };
+    if (users.find(u => (email && u.email === email) || u.phone === phone)) {
+      return { ok: false, msg: '该手机号或邮箱已注册，请直接登录' };
     }
     const user = {
       id: 'u_' + Date.now(),

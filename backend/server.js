@@ -94,6 +94,11 @@ async function sendVerificationCode(req, res, body) {
   const purpose = normalizeVerificationPurpose(body.purpose || 'login');
   if (!phone) throw httpError(400, '请输入手机号');
 
+  if (purpose === 'register') {
+    const existing = await getOne('SELECT id FROM users WHERE phone = ? LIMIT 1', [phone]);
+    if (existing) throw httpError(409, '该手机号或邮箱已注册，请直接登录');
+  }
+
   await enforceVerificationRateLimit(phone, purpose);
 
   const code = String(crypto.randomInt(100000, 1000000));
