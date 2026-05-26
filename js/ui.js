@@ -610,6 +610,25 @@ const UI = (() => {
       </div>
     `);
 
+    if (data.genericSections && data.genericSections.length) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#e8f0f9">📌</div>
+            <div class="report-section-title">详细分析</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            ${data.genericSections.map(section => `
+              <div style="padding:16px;background:var(--gray-50);border-radius:var(--radius-lg);border:1px solid var(--gray-100)">
+                <div style="font-size:15px;font-weight:700;color:var(--gray-800);margin-bottom:8px">${section.title || section.key || '分析模块'}</div>
+                <div style="font-size:14px;color:var(--gray-600);line-height:1.8">${String(section.content || section.summary || '').replace(/\n/g, '<br>')}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `);
+    }
+
     // 3. 申请竞争力判断
     if (data.competitivenessAnalysis) {
       html.push(`
@@ -1602,7 +1621,7 @@ const UI = (() => {
             <div class="voucher-code">权益码 ${v.code}</div>
             <div class="voucher-expiry">有效期至：${exp}${isExpired ? ' · 已过期' : ''}</div>
           </div>
-          ${!isExpired ? `<button class="btn btn-gold btn-sm" onclick="handleStartAssessment()">去生成报告</button>` : ''}
+          ${!isExpired ? `<button class="btn btn-gold btn-sm" onclick="UI.showModal('modalSelectReport')">去生成报告</button>` : ''}
         </div>
       `;
     }).join('');

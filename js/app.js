@@ -248,7 +248,7 @@ const APP = (() => {
       typeInfo: REPORT_TYPES[r.reportType] || REPORT_TYPES.competitiveness,
       createdAt: r.createdAt,
       questionnaireData: {},
-      reportData: r.reportData || r.fullContentJson || {},
+      reportData: normalizeReportData(r.reportType, r.reportData || r.fullContentJson || {}),
       status: r.status,
     };
     const idx = state.reports.findIndex(item => item.id === reportId);
@@ -2717,14 +2717,14 @@ ${expDetails}
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Report API error');
-        reportData = result.report.reportData;
+        reportData = normalizeReportData(reportType, result.report.reportData);
         backendReportId = result.report.id;
       } catch(e) {
         console.error('Backend report generation error:', e);
         throw e;
       }
     } else {
-      reportData = await callQwen(template.systemPrompt, userPrompt);
+      reportData = normalizeReportData(reportType, await callQwen(template.systemPrompt, userPrompt));
     }
 
     // Step 2: Save report
@@ -2763,6 +2763,48 @@ ${expDetails}
     saveState();
 
     return { report, voucher };
+  }
+
+  function normalizeReportData(reportType, rawData) {
+    const data = rawData && typeof rawData === 'object' ? { ...rawData } : {};
+    if (reportType !== 'competitiveness') return data;
+
+    const chartData = data.chartData || {};
+    const chartScores = chartData.scoringDimensions || chartData.scores || {};
+    const scoringDimensions = data.scoringDimensions || chartScores || {};
+    const scores = Object.values(scoringDimensions).map(Number).filter(Number.isFinite);
+    const inferredScore = scores.length
+      ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+      : 70;
+
+    const risks = Array.isArray(data.risks) ? data.risks : [];
+    const recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
+    const sections = Array.isArray(data.sections) ? data.sections : [];
+
+    return {
+      ...data,
+      overallScore: Number(data.overallScore || chartData.overallScore || chartData.score || inferredScore),
+      scoringDimensions: Object.keys(scoringDimensions).length ? scoringDimensions : {
+        academics: 70,
+        testScores: 70,
+        majorFit: 70,
+        backgroundDepth: 70,
+        highVisibility: 65,
+        narrativeMaturity: 68,
+      },
+      reportSummary: data.reportSummary || data.summary || sections[0]?.content || '',
+      summary: data.summary || data.reportSummary || sections[0]?.content || '',
+      genericSections: sections,
+      keyGaps: data.keyGaps || risks.map(item => ({
+        level: item.level || item.urgency || 'important',
+        title: item.title || item.risk || '待关注风险',
+        desc: item.desc || item.description || item.content || '',
+      })),
+      recommendations: recommendations.map(item => typeof item === 'string'
+        ? { title: item, desc: '' }
+        : item),
+      conclusion: data.conclusion || (Array.isArray(data.nextSteps) ? data.nextSteps.map(item => item.step || item.title || item).join('；') : ''),
+    };
   }
 
   // ---- Service Products ----

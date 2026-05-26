@@ -152,10 +152,10 @@ async function registerUser(res, body) {
   if (password && password.length < 6) {
     throw httpError(400, '密码至少需要 6 位');
   }
-  await verifySmsCode(phone, verificationCode, 'register');
 
   const existing = await getOne('SELECT id FROM users WHERE phone = ? OR (email IS NOT NULL AND email = ?) LIMIT 1', [phone, email]);
   if (existing) throw httpError(409, '该手机号或邮箱已注册，请直接登录');
+  await verifySmsCode(phone, verificationCode, 'register');
 
   const user = {
     id: id('user'),
@@ -1243,7 +1243,8 @@ async function verifySmsCode(phone, code, purpose) {
       [phone, purpose]
     );
     if (!record) throw httpError(400, '请先获取短信验证码');
-    if (new Date(record.expires_at).getTime() < Date.now()) {
+    const fresh = await getOneForUpdate(conn, 'SELECT expires_at <= NOW() AS expired FROM user_verification_codes WHERE id = ? LIMIT 1', [record.id]);
+    if (Number(fresh?.expired || 0) === 1) {
       await conn.execute('UPDATE user_verification_codes SET status = "expired", updated_at = NOW() WHERE id = ?', [record.id]);
       throw httpError(410, '验证码已过期，请重新获取');
     }
