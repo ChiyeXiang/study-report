@@ -952,6 +952,7 @@
             <input type="text" id="loginCode" class="form-input" placeholder="6 位验证码" inputmode="numeric" style="flex:1" />
             <button type="button" class="btn btn-outline" onclick="UI.sendLoginCode()">发送验证码</button>
           </div>
+          <div id="loginFormNotice" style="display:none;margin-top:8px;font-size:12px;color:var(--error);line-height:1.5"></div>
         </div>
         <button type="submit" class="btn btn-primary w-full" style="margin-top:8px">登录</button>
         <div style="text-align:center;margin-top:12px;font-size:13px;color:var(--gray-400)">
@@ -991,6 +992,7 @@
             <input type="text" id="regCode" class="form-input" placeholder="6 位验证码" inputmode="numeric" style="flex:1" />
             <button type="button" class="btn btn-outline" onclick="UI.sendRegisterCode()">发送验证码</button>
           </div>
+          <div id="registerFormNotice" style="display:none;margin-top:8px;font-size:12px;color:var(--error);line-height:1.5"></div>
         </div>
         <div class="form-group">
           <label class="form-label">设置密码</label>

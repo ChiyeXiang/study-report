@@ -236,6 +236,21 @@ const APP = (() => {
     return data;
   }
 
+  async function hasReportAccess() {
+    const summary = await fetchAccountSummary();
+    const now = Date.now();
+    const subscription = summary.subscription || state.subscription;
+    if (subscription && subscription.status === 'active') {
+      const end = subscription.endTime || subscription.end_time;
+      if (!end || new Date(end).getTime() > now) return true;
+    }
+    return (state.vouchers || []).some(v => {
+      const remaining = Number(v.remainingQuantity ?? v.remaining_quantity ?? v.amount ?? 0);
+      const expiresAt = v.expiresAt || v.expires_at;
+      return v.status === 'active' && remaining > 0 && (!expiresAt || new Date(expiresAt).getTime() > now);
+    });
+  }
+
   async function fetchReport(reportId) {
     if (!backendEnabled() || !state.authToken) {
       return state.reports.find(r => r.id === reportId);
@@ -2866,6 +2881,7 @@ ${expDetails}
     claimLizhihuiVoucher,
     fetchAccountSummary,
     redeemCode,
+    hasReportAccess,
     sendVerificationCode,
     fetchReport,
     apiRequest,

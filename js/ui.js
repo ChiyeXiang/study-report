@@ -62,17 +62,18 @@ const UI = (() => {
 
   async function handleRegister(e) {
     e.preventDefault();
+    setFormNotice('registerFormNotice', '');
     const name = document.getElementById('regName').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
     const phone = document.getElementById('regPhone').value.trim();
     const verificationCode = document.getElementById('regCode').value.trim();
     if (!name || !phone || !verificationCode) {
-      toast('请填写所有必填项', 'error');
+      showAuthError('register', '请填写姓名、手机号和短信验证码');
       return;
     }
     if (password && password.length < 6) {
-      toast('密码至少需要 6 位', 'error');
+      showAuthError('register', '密码至少需要 6 位');
       return;
     }
     const result = await APP.register(name, email, password, phone, verificationCode);
@@ -96,16 +97,17 @@ const UI = (() => {
         }, 300);
       }
     } else {
-      toast(result.msg, 'error');
+      showAuthError('register', result.msg);
     }
   }
 
   async function handleLogin(e) {
     e.preventDefault();
+    setFormNotice('loginFormNotice', '');
     const phone = document.getElementById('loginPhone').value.trim();
     const verificationCode = document.getElementById('loginCode').value.trim();
     if (!phone || !verificationCode) {
-      toast('请填写手机号和验证码', 'error');
+      showAuthError('login', '请填写手机号和验证码');
       return;
     }
     const result = await APP.login(phone, '', verificationCode);
@@ -129,29 +131,60 @@ const UI = (() => {
         }, 300);
       }
     } else {
-      toast(result.msg, 'error');
+      showAuthError('login', result.msg);
     }
   }
 
   async function sendRegisterCode() {
+    setFormNotice('registerFormNotice', '');
     const phone = document.getElementById('regPhone').value.trim();
-    if (!phone) return toast('请先填写手机号', 'error');
+    if (!phone) return showAuthError('register', '请先填写手机号');
     await sendCode(phone, 'register');
   }
 
   async function sendLoginCode() {
+    setFormNotice('loginFormNotice', '');
     const phone = document.getElementById('loginPhone').value.trim();
-    if (!phone) return toast('请先填写手机号', 'error');
+    if (!phone) return showAuthError('login', '请先填写手机号');
     await sendCode(phone, 'login');
   }
 
   async function sendCode(phone, purpose) {
     try {
       const result = await APP.sendVerificationCode(phone, purpose);
+      setFormNotice(purpose === 'register' ? 'registerFormNotice' : 'loginFormNotice', result.mockCode ? `测试验证码：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
       toast(result.mockCode ? `验证码已生成：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
     } catch (err) {
-      toast(err?.message || '验证码发送失败，请稍后重试', 'error');
+      showAuthError(purpose, err?.message || '验证码发送失败，请稍后重试');
     }
+  }
+
+  function showAuthError(scope, message) {
+    const text = normalizeUserMessage(message);
+    setFormNotice(scope === 'register' ? 'registerFormNotice' : 'loginFormNotice', text);
+    toast(text, 'error');
+  }
+
+  function setFormNotice(id, message, type = 'error') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!message) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    el.style.display = 'block';
+    el.style.color = type === 'success' ? 'var(--success)' : 'var(--error)';
+    el.textContent = message;
+  }
+
+  function normalizeUserMessage(message) {
+    const text = String(message || '').replace(/^Error:\s*/i, '');
+    if (text.includes('发送过于频繁')) return '验证码发送过于频繁，请稍后再试';
+    if (text.includes('验证码错误')) return '验证码错误，请检查后重试';
+    if (text.includes('已注册')) return '该手机号已注册，请直接登录';
+    if (text.includes('已过期')) return '验证码已过期，请重新获取';
+    return text || '操作失败，请稍后重试';
   }
 
   // ---- Questionnaire ----
@@ -437,8 +470,21 @@ const UI = (() => {
 
   let generatingParams = null;
 
-  function startGeneration(params) {
+  async function startGeneration(params) {
     generatingParams = params;
+    try {
+      const hasAccess = await APP.hasReportAccess();
+      if (!hasAccess) {
+        openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员，请先兑换权益或前往荔智惠购买。');
+        return;
+      }
+    } catch (err) {
+      const message = err?.message || '';
+      if (message.includes('权益') || message.includes('会员') || message.includes('402')) {
+        openEntitlementRequiredModal(message);
+        return;
+      }
+    }
     const rt = APP.REPORT_TYPES[params.reportType];
     document.getElementById('genReportName').textContent = rt ? rt.name : '报告';
     document.getElementById('genIcon').textContent = rt ? rt.emoji : '📊';
