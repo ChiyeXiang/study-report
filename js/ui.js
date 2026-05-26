@@ -497,8 +497,13 @@ const UI = (() => {
       // Navigate to report page
       showPage('report', { reportId: report.id });
     } catch(err) {
-      toast(err?.message || '报告生成遇到问题，请稍后重试', 'error');
       stepEls[lastIdx].classList.remove('active');
+      const message = err?.message || '报告生成遇到问题，请稍后重试';
+      if (message.includes('权益') || message.includes('会员') || message.includes('402')) {
+        openEntitlementRequiredModal(message);
+      } else {
+        toast(message, 'error');
+      }
     }
   }
 
@@ -1620,6 +1625,40 @@ const UI = (() => {
     }
   }
 
+  function openEntitlementRequiredModal(message) {
+    const messageEl = document.getElementById('entitlementRequiredMessage');
+    const input = document.getElementById('entitlementRedeemCode');
+    if (messageEl) messageEl.textContent = message || '当前账户没有可用报告权益或有效会员。';
+    if (input) input.value = '';
+    showModal('modalEntitlementRequired');
+  }
+
+  async function redeemCodeAndRetryReport() {
+    const input = document.getElementById('entitlementRedeemCode');
+    const code = input?.value.trim();
+    if (!code) {
+      toast('请输入兑换码', 'warning');
+      return;
+    }
+    try {
+      await APP.redeemCode(code);
+      toast('兑换成功，正在继续生成报告', 'success');
+      hideModal('modalEntitlementRequired');
+      if (generatingParams) {
+        showPage('generating', generatingParams);
+      } else {
+        showPage('account', { section: 'vouchers' });
+      }
+    } catch (e) {
+      toast(e.message || '兑换失败，请检查兑换码', 'error');
+    }
+  }
+
+  function goBuyEntitlement() {
+    hideModal('modalEntitlementRequired');
+    goToMiniProgram();
+  }
+
   function viewReport(reportId) {
     showPage('report', { reportId });
   }
@@ -1690,6 +1729,8 @@ const UI = (() => {
     renderHistoryReports,
     renderVouchers,
     redeemCode,
+    redeemCodeAndRetryReport,
+    goBuyEntitlement,
     viewReport,
     goToMiniProgram,
     claimLizhihuiVoucher,

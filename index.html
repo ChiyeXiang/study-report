@@ -1043,6 +1043,35 @@
   </div>
 </div>
 
+<!-- Entitlement Required Modal -->
+<div id="modalEntitlementRequired" class="modal-overlay" onclick="handleModalOverlayClick(event,'modalEntitlementRequired')">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">需要报告权益</div>
+      <div class="modal-close" onclick="UI.hideModal('modalEntitlementRequired')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="padding:16px 18px;background:var(--navy-50);border:1px solid var(--navy-100);border-radius:var(--radius-xl);margin-bottom:18px">
+        <div style="font-size:15px;font-weight:700;color:var(--gray-800);margin-bottom:6px">本次报告还没有可用权益</div>
+        <div id="entitlementRequiredMessage" style="font-size:13px;color:var(--gray-500);line-height:1.7">
+          当前账户没有可用报告权益或有效会员，请先兑换权益或开通会员。
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">输入兑换码</label>
+        <div style="display:flex;gap:8px">
+          <input id="entitlementRedeemCode" class="form-input" style="flex:1" placeholder="输入兑换码，例如 RPT-XXXX 或 VIP-XXXX" />
+          <button class="btn btn-primary" type="button" onclick="UI.redeemCodeAndRetryReport()">兑换并继续</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn btn-gold" style="flex:1" onclick="UI.goBuyEntitlement()">前往荔智惠购买</button>
+        <button class="btn btn-outline" style="flex:1" onclick="UI.hideModal('modalEntitlementRequired');UI.showPage('account',{section:'vouchers'})">查看我的权益</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Mini Program Modal -->
 <div id="modalMiniProgram" class="modal-overlay" onclick="handleModalOverlayClick(event,'modalMiniProgram')">
   <div class="modal">
