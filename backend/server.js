@@ -98,13 +98,12 @@ async function sendVerificationCode(req, res, body) {
 
   const code = String(crypto.randomInt(100000, 1000000));
   const codeHash = hmac(JWT_SECRET, code);
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   const verificationId = id('vcode');
 
   await execute(
     `INSERT INTO user_verification_codes
      (id, phone, purpose, code_hash, provider, status, expires_at, max_attempts, ip_address, user_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), ?, ?, ?)`,
     [
       verificationId,
       phone,
@@ -112,7 +111,6 @@ async function sendVerificationCode(req, res, body) {
       codeHash,
       SMS_PROVIDER,
       'sent',
-      toMysqlDate(expiresAt),
       5,
       req.headers['x-forwarded-for'] || req.socket.remoteAddress || null,
       req.headers['user-agent'] || null,
