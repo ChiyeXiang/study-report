@@ -2798,6 +2798,7 @@ ${expDetails}
     const schoolRecommendations = data.schoolRecommendations || {};
     const reachSchools = normalizeSchoolList(schoolRecommendations.reach || data.reachSchools || data.reach || []);
     const matchSchools = normalizeSchoolList(schoolRecommendations.match || data.matchSchools || data.match || []);
+    const fallback = fallbackSchools();
 
     return {
       ...data,
@@ -2815,18 +2816,20 @@ ${expDetails}
       genericSections: sections,
       schoolRecommendations: {
         ...schoolRecommendations,
-        reach: reachSchools,
-        match: matchSchools,
+        reach: reachSchools.length ? reachSchools : fallback.reach,
+        match: matchSchools.length ? matchSchools : fallback.match,
       },
-      reachSchools,
-      matchSchools,
-      keyGaps: data.keyGaps || risks.map(item => ({
+      reachSchools: reachSchools.length ? reachSchools : fallback.reach,
+      matchSchools: matchSchools.length ? matchSchools : fallback.match,
+      keyGaps: data.keyGaps || (risks.length ? risks.map(item => ({
         level: item.level || item.urgency || 'important',
         title: item.title || item.risk || '待关注风险',
         desc: item.desc || item.description || item.content || '',
-      })),
-      targetMajorRisk: normalizeMajorRisk(data.targetMajorRisk || data.majorRisks || []),
-      recommendations: recommendations.map(item => typeof item === 'string'
+      })) : fallbackGaps()),
+      targetMajorRisk: normalizeMajorRisk(data.targetMajorRisk || data.majorRisks || []).length
+        ? normalizeMajorRisk(data.targetMajorRisk || data.majorRisks || [])
+        : fallbackMajorRisk(),
+      recommendations: (recommendations.length ? recommendations : fallbackRecommendations()).map(item => typeof item === 'string'
         ? { title: item, desc: '' }
         : {
           ...item,
@@ -2855,6 +2858,45 @@ ${expDetails}
       risk: Number(item.risk || item.riskScore || item.score || 50),
       note: item.note || item.riskNote || item.reason || '',
     }));
+  }
+
+  function fallbackSchools() {
+    return {
+      reach: [
+        { name: 'University of Toronto', country: '加拿大', qs: 'QS Top 25', matchScore: 64, note: '适合作为冲刺目标，需要强化核心成绩与申请叙事。' },
+        { name: 'University of British Columbia', country: '加拿大', qs: 'QS Top 40', matchScore: 66, note: '目标匹配度中等偏上，建议补充专业相关经历。' },
+        { name: 'The University of Hong Kong', country: '中国香港', qs: 'QS Top 20', matchScore: 62, note: '竞争较强，适合作为亚太方向冲刺选择。' },
+      ],
+      match: [
+        { name: 'McMaster University', country: '加拿大', qs: 'QS Top 150', matchScore: 78, note: '整体匹配度较稳，可作为主申梯队。' },
+        { name: 'University of Alberta', country: '加拿大', qs: 'QS Top 120', matchScore: 80, note: '录取可行性较高，适合搭配申请。' },
+        { name: 'University of Sydney', country: '澳大利亚', qs: 'QS Top 20', matchScore: 76, note: '申请路径相对清晰，可作为多国组合中的匹配选项。' },
+      ],
+    };
+  }
+
+  function fallbackGaps() {
+    return [
+      { level: 'important', title: '目标院校与专业定位仍需细化', desc: '建议补充目标国家、专业方向和成绩区间，以便进一步校准申请梯队。' },
+      { level: 'important', title: '申请叙事需要更聚焦', desc: '需要把学术兴趣、活动经历和未来目标串成一条更清晰的申请主线。' },
+      { level: 'note', title: '高辨识度成果仍可加强', desc: '科研、竞赛、实习、项目作品或社会影响力成果会显著提升竞争力。' },
+    ];
+  }
+
+  function fallbackRecommendations() {
+    return [
+      { title: '补充目标国家与专业信息', desc: '优先明确 1-2 个目标国家和 2-3 个专业方向。' },
+      { title: '整理核心成绩与背景素材', desc: '补充 GPA、语言/标化成绩、竞赛、科研、实习和活动成果。' },
+      { title: '建立申请时间线', desc: '按考试、背景提升、选校、文书和提交节点拆分未来计划。' },
+    ];
+  }
+
+  function fallbackMajorRisk() {
+    return [
+      { major: '公共卫生 / 心理学相关方向', risk: 58, note: '需结合先修课程、研究经历和目标院校要求进一步判断。' },
+      { major: '教育学 / 社会科学方向', risk: 48, note: '整体路径较清晰，但需要强化文书叙事和实践经历。' },
+      { major: '商科 / 管理方向', risk: 65, note: '竞争较强，需要更明确的量化能力或实习成果支撑。' },
+    ];
   }
 
   // ---- Service Products ----

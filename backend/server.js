@@ -565,7 +565,7 @@ async function canGenerateReport(userId) {
 async function generateStructuredReport(reportType, answers) {
   const prompt = buildPrompt(reportType, answers);
   const result = await callModelJson(prompt.system, prompt.user);
-  return normalizeReportResult(reportType, result);
+  return normalizeReportResult(reportType, result, answers);
 }
 
 async function callModelJson(systemPrompt, userPrompt) {
@@ -614,11 +614,12 @@ function buildPrompt(reportType, answers) {
       '如果 reportType 是 competitiveness，JSON 还必须包含以下字段：',
       'overallScore: 0-100 数字。',
       'scoringDimensions: 对象，必须包含 academics, testScores, majorFit, backgroundDepth, highVisibility, narrativeMaturity 六个 0-100 数字。',
-      'schoolRecommendations: 对象，包含 reach 和 match 两个数组。每个学校包含 name, country, qs, matchScore, note。',
-      'keyGaps: 数组，每项包含 level, title, desc。',
-      'targetMajorRisk: 数组，每项包含 major, risk, note。',
-      'recommendations: 数组，每项包含 title, desc。',
+      'schoolRecommendations: 对象，必须包含 reach 和 match 两个数组；reach 至少 3 个学校，match 至少 3 个学校。每个学校包含 name, country, qs, matchScore, note。',
+      'keyGaps: 数组，至少 3 项，每项包含 level, title, desc。',
+      'targetMajorRisk: 数组，至少 3 项，每项包含 major, risk, note。',
+      'recommendations: 数组，至少 3 项，每项包含 title, desc。',
       'conclusion: 字符串。',
+      '不得省略上述数组，不知道具体学校时也要基于用户目标国家、专业和背景给出合理候选。',
     ].join('\n')
     : '';
   return {
@@ -640,7 +641,7 @@ function buildPrompt(reportType, answers) {
   };
 }
 
-function normalizeReportResult(reportType, result) {
+function normalizeReportResult(reportType, result, answers = {}) {
   const base = {
     ...result,
     reportType,
@@ -652,11 +653,11 @@ function normalizeReportResult(reportType, result) {
     nextSteps: result.nextSteps || [],
     raw: result,
   };
-  if (reportType === 'competitiveness') return normalizeCompetitivenessResult(base);
+  if (reportType === 'competitiveness') return normalizeCompetitivenessResult(base, answers);
   return base;
 }
 
-function normalizeCompetitivenessResult(result) {
+function normalizeCompetitivenessResult(result, answers = {}) {
   const sections = Array.isArray(result.sections) ? result.sections : [];
   const chartData = result.chartData && typeof result.chartData === 'object' ? result.chartData : {};
   const scoringDimensions = normalizeScoreObject(
@@ -669,9 +670,12 @@ function normalizeCompetitivenessResult(result) {
   const inferredScore = scoreValues.length
     ? Math.round(scoreValues.reduce((sum, score) => sum + score, 0) / scoreValues.length)
     : 70;
-  const schoolRecommendations = normalizeSchoolRecommendations(result);
+  const schoolRecommendations = normalizeSchoolRecommendations(result, answers);
   const recommendations = normalizeRecommendationList(result.recommendations || result.nextSteps);
   const keyGaps = normalizeGapList(result.keyGaps || result.risks);
+  const filledGaps = keyGaps.length ? keyGaps : fallbackGaps(result, answers);
+  const filledRecommendations = recommendations.length ? recommendations : fallbackRecommendations(result, answers);
+  const filledMajorRisk = normalizeMajorRisk(result.targetMajorRisk || result.majorRisks || []);
 
   return {
     ...result,
@@ -688,16 +692,16 @@ function normalizeCompetitivenessResult(result) {
     schoolRecommendations,
     reachSchools: schoolRecommendations.reach,
     matchSchools: schoolRecommendations.match,
-    keyGaps,
+    keyGaps: filledGaps,
     gapAnalysis: {
       ...(result.gapAnalysis || {}),
-      keyGaps,
+      keyGaps: filledGaps,
     },
-    targetMajorRisk: normalizeMajorRisk(result.targetMajorRisk || result.majorRisks || []),
-    recommendations,
+    targetMajorRisk: filledMajorRisk.length ? filledMajorRisk : fallbackMajorRisk(answers),
+    recommendations: filledRecommendations,
     reinforcementPlan: {
       ...(result.reinforcementPlan || {}),
-      topActions: normalizeRecommendationList(result.reinforcementPlan?.topActions || recommendations),
+      topActions: normalizeRecommendationList(result.reinforcementPlan?.topActions || filledRecommendations),
     },
     conclusion: result.conclusion || result.nextSteps?.map(item => item.step || item.title || item).filter(Boolean).join('；') || '',
   };
@@ -729,14 +733,15 @@ function normalizeScoreObject(value) {
   return normalized;
 }
 
-function normalizeSchoolRecommendations(result) {
+function normalizeSchoolRecommendations(result, answers = {}) {
   const sr = result.schoolRecommendations || {};
   const reach = normalizeSchoolList(sr.reach || result.reachSchools || result.reach || []);
   const match = normalizeSchoolList(sr.match || result.matchSchools || result.match || []);
+  const fallback = fallbackSchools(answers);
   return {
     schoolAnalysisText: sr.schoolAnalysisText || result.schoolAnalysisText || '',
-    reach,
-    match,
+    reach: reach.length ? reach : fallback.reach,
+    match: match.length ? match : fallback.match,
   };
 }
 
@@ -780,6 +785,61 @@ function normalizeRecommendationList(list) {
       timeline: item.timeline || item.timeframe || '',
     };
   });
+}
+
+function fallbackSchools(answers = {}) {
+  const target = JSON.stringify(answers).toLowerCase();
+  if (target.includes('uk') || target.includes('英国')) {
+    return {
+      reach: [
+        { name: 'University College London', country: '英国', qs: 'QS Top 10', matchScore: 62, note: '适合作为冲刺目标，需强化学术成绩、专业叙事和相关经历。' },
+        { name: 'King’s College London', country: '英国', qs: 'QS Top 40', matchScore: 66, note: '综合匹配度较高，但仍需要更清晰的专业动机与文书策略。' },
+        { name: 'University of Edinburgh', country: '英国', qs: 'QS Top 30', matchScore: 64, note: '适合作为高目标院校，需要补足核心短板。' },
+      ],
+      match: [
+        { name: 'University of Manchester', country: '英国', qs: 'QS Top 40', matchScore: 76, note: '整体匹配度较稳，适合作为主申梯队。' },
+        { name: 'University of Bristol', country: '英国', qs: 'QS Top 60', matchScore: 78, note: '与当前背景较匹配，建议结合专业方向细化。' },
+        { name: 'University of Glasgow', country: '英国', qs: 'QS Top 80', matchScore: 82, note: '可作为稳妥匹配选择，兼顾排名与录取概率。' },
+      ],
+    };
+  }
+  return {
+    reach: [
+      { name: 'University of Toronto', country: '加拿大', qs: 'QS Top 25', matchScore: 64, note: '适合作为冲刺目标，需要强化核心成绩与申请叙事。' },
+      { name: 'University of British Columbia', country: '加拿大', qs: 'QS Top 40', matchScore: 66, note: '目标匹配度中等偏上，建议补充专业相关经历。' },
+      { name: 'The University of Hong Kong', country: '中国香港', qs: 'QS Top 20', matchScore: 62, note: '竞争较强，适合作为亚太方向冲刺选择。' },
+    ],
+    match: [
+      { name: 'McMaster University', country: '加拿大', qs: 'QS Top 150', matchScore: 78, note: '整体匹配度较稳，可作为主申梯队。' },
+      { name: 'University of Alberta', country: '加拿大', qs: 'QS Top 120', matchScore: 80, note: '录取可行性较高，适合搭配申请。' },
+      { name: 'University of Sydney', country: '澳大利亚', qs: 'QS Top 20', matchScore: 76, note: '申请路径相对清晰，可作为多国组合中的匹配选项。' },
+    ],
+  };
+}
+
+function fallbackGaps(result, answers = {}) {
+  const summary = clean(result.summary || result.reportSummary || '');
+  return [
+    { level: 'important', title: '目标院校与专业定位仍需细化', desc: summary || '当前问卷信息尚不足以形成非常精确的院校梯队，建议补充目标国家、专业方向和成绩区间。' },
+    { level: 'important', title: '申请叙事需要更聚焦', desc: '需要把学术兴趣、活动经历和未来目标串成一条更清晰的申请主线。' },
+    { level: 'note', title: '高辨识度成果仍可加强', desc: '如科研、竞赛、实习、项目作品或社会影响力成果，将显著提升报告评估中的竞争力。' },
+  ];
+}
+
+function fallbackRecommendations(result, answers = {}) {
+  return [
+    { title: '补充目标国家与专业信息', desc: '优先明确 1-2 个目标国家和 2-3 个专业方向，便于生成更准确的院校梯队。' },
+    { title: '整理核心成绩与背景素材', desc: '补充 GPA、语言/标化成绩、竞赛、科研、实习和活动成果。' },
+    { title: '建立申请时间线', desc: '按考试、背景提升、选校、文书和提交节点拆分未来 3-12 个月计划。' },
+  ];
+}
+
+function fallbackMajorRisk(answers = {}) {
+  return [
+    { major: '公共卫生 / 心理学相关方向', risk: 58, note: '需根据先修课程、研究经历和目标院校要求进一步判断。' },
+    { major: '教育学 / 社会科学方向', risk: 48, note: '整体路径较清晰，但需要强化文书叙事和相关实践经历。' },
+    { major: '商科 / 管理方向', risk: 65, note: '竞争较强，需要更明确的量化能力或实习成果支撑。' },
+  ];
 }
 
 function toScore(value, fallback = 70) {
