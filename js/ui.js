@@ -604,6 +604,10 @@ const UI = (() => {
       renderCareerReport(body, data, report);
     }
 
+    if (!body.innerHTML.trim()) {
+      renderGenericReport(body, data, report);
+    }
+
     // Find voucher for this report
     const voucher = APP.state.vouchers.find(v => v.reportId === reportId);
     if (voucher) {
@@ -614,6 +618,153 @@ const UI = (() => {
       const exp = new Date(voucher.expiresAt).toLocaleDateString('zh-CN');
       document.getElementById('reportVoucherExpiry').textContent = `有效期至：${exp}`;
     }
+  }
+
+  function renderGenericReport(body, data, report) {
+    body.innerHTML = buildGenericReportHtml(data, report).join('');
+  }
+
+  function buildGenericReportHtml(data = {}, report = {}) {
+    const html = [];
+    const summary = firstText([
+      data.executiveSummary,
+      data.longTermSummary,
+      data.reportSummary,
+      data.summary,
+      data.conclusion
+    ]);
+    const sections = Array.isArray(data.sections) ? data.sections : [];
+    const recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
+    const risks = Array.isArray(data.risks) ? data.risks : [];
+    const nextSteps = Array.isArray(data.nextSteps) ? data.nextSteps : [];
+
+    if (summary) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#e8f0f9">📋</div>
+            <div class="report-section-title">报告摘要</div>
+          </div>
+          <div class="report-summary-box">
+            <div class="report-summary-label">AI 核心判断</div>
+            <div class="report-summary-text">${formatReportText(summary)}</div>
+          </div>
+        </div>
+      `);
+    }
+
+    if (sections.length) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#fef9ee">🧭</div>
+            <div class="report-section-title">${report.typeInfo?.name || '报告分析'}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${sections.map((section, index) => {
+              const title = section?.title || section?.name || `分析模块 ${index + 1}`;
+              const content = firstText([section?.content, section?.description, section?.summary, section?.text]);
+              const bullets = arrayFromUnknown(section?.items || section?.bullets || section?.points);
+              return `
+                <div style="padding:16px;background:var(--gray-50);border-radius:var(--radius-lg)">
+                  <div style="font-size:15px;font-weight:700;color:var(--gray-800);margin-bottom:8px">${title}</div>
+                  ${content ? `<div style="font-size:14px;color:var(--gray-600);line-height:1.85">${formatReportText(content)}</div>` : ''}
+                  ${bullets.length ? `
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+                      ${bullets.map(item => `<div style="font-size:13px;color:var(--gray-600);line-height:1.7">• ${formatReportText(textFromItem(item))}</div>`).join('')}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `);
+    }
+
+    if (recommendations.length || nextSteps.length) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#ecfdf5">✅</div>
+            <div class="report-section-title">推荐补强方向</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${[...recommendations, ...nextSteps].map((item, index) => `
+              <div style="display:flex;gap:14px;padding:14px 16px;background:var(--gray-50);border-radius:var(--radius-lg)">
+                <div style="width:26px;height:26px;border-radius:50%;background:var(--navy-500);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${index + 1}</div>
+                <div style="font-size:14px;color:var(--gray-700);line-height:1.75">${formatReportText(textFromItem(item))}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `);
+    }
+
+    if (risks.length) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#fef2f2">⚠️</div>
+            <div class="report-section-title">当前核心短板与风险</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${risks.map(item => `
+              <div style="padding:14px 16px;background:var(--gray-50);border-radius:var(--radius-lg);border-left:3px solid var(--warning)">
+                <div style="font-size:14px;color:var(--gray-700);line-height:1.75">${formatReportText(textFromItem(item))}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `);
+    }
+
+    if (!html.length) {
+      html.push(`
+        <div class="report-section">
+          <div class="report-section-header">
+            <div class="report-section-icon" style="background:#fef2f2">⚠️</div>
+            <div class="report-section-title">报告内容未完整展示</div>
+          </div>
+          <div style="font-size:14px;color:var(--gray-600);line-height:1.85">
+            报告已经生成，但模型返回的结构化字段暂时无法被当前页面识别。请刷新页面或重新生成一次；如果仍然出现，请联系技术支持检查该报告的原始返回内容。
+          </div>
+        </div>
+      `);
+    }
+
+    return html;
+  }
+
+  function firstText(values) {
+    return values.find(value => typeof value === 'string' && value.trim());
+  }
+
+  function arrayFromUnknown(value) {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string' && value.trim()) return [value];
+    return [];
+  }
+
+  function textFromItem(item) {
+    if (typeof item === 'string') return item;
+    if (!item || typeof item !== 'object') return '';
+    return firstText([
+      item.title && item.description ? `${item.title}：${item.description}` : '',
+      item.title && item.content ? `${item.title}：${item.content}` : '',
+      item.action && item.expectedImpact ? `${item.action}：${item.expectedImpact}` : '',
+      item.step,
+      item.action,
+      item.recommendation,
+      item.description,
+      item.content,
+      item.text,
+      item.name
+    ]) || '';
+  }
+
+  function formatReportText(text) {
+    return String(text || '').replace(/\n/g, '<br>');
   }
 
   function renderCompetitivenessReport(body, data, report) {
@@ -1083,6 +1234,11 @@ const UI = (() => {
   }
 
   function renderCareerReport(body, data, report) {
+    if (!hasCareerSpecificContent(data) && hasGenericReportContent(data)) {
+      renderGenericReport(body, data, report);
+      return;
+    }
+
     const html = [];
 
     // 1. 成长画像雷达 + 摘要
@@ -1343,6 +1499,36 @@ const UI = (() => {
       renderAbilityChart(data.interestAndAbility?.coreCompetencies);
       renderGapChart(data.capabilityGaps);
     }, 100);
+  }
+
+  function hasCareerSpecificContent(data = {}) {
+    return Boolean(
+      data.longTermSummary ||
+      data.personalProfile?.coreIdentity ||
+      data.growthRadar ||
+      data.abilityTags?.length ||
+      data.interestAndAbility?.interestTags?.length ||
+      data.growthProfileText ||
+      data.interestDirectionText ||
+      data.academicCareerText ||
+      data.careerPathTree?.branches?.length ||
+      data.capabilityGapText ||
+      data.capabilityGaps?.length ||
+      data.fiveYearText ||
+      data.fiveYearTimeline?.length
+    );
+  }
+
+  function hasGenericReportContent(data = {}) {
+    return Boolean(
+      data.summary ||
+      data.reportSummary ||
+      data.conclusion ||
+      data.sections?.length ||
+      data.recommendations?.length ||
+      data.risks?.length ||
+      data.nextSteps?.length
+    );
   }
 
   // ---- Charts ----
