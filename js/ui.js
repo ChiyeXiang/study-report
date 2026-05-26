@@ -137,14 +137,15 @@ const UI = (() => {
 
   async function sendRegisterCode() {
     setFormNotice('registerFormNotice', '');
+    setFormNotice('registerPhoneNotice', '');
     const phone = document.getElementById('regPhone').value.trim();
-    if (!phone) return showAuthError('register', '请先填写手机号');
+    if (!phone) return setFormNotice('registerPhoneNotice', '请先填写手机号');
     const button = getCodeButton('register');
-    setButtonBusy(button, true, '正在检查...');
+    setButtonDisabled(button, true);
     try {
       await sendCode(phone, 'register');
     } finally {
-      setButtonBusy(button, false);
+      setButtonDisabled(button, false);
     }
   }
 
@@ -153,11 +154,11 @@ const UI = (() => {
     const phone = document.getElementById('loginPhone').value.trim();
     if (!phone) return showAuthError('login', '请先填写手机号');
     const button = getCodeButton('login');
-    setButtonBusy(button, true, '正在发送...');
+    setButtonDisabled(button, true);
     try {
       await sendCode(phone, 'login');
     } finally {
-      setButtonBusy(button, false);
+      setButtonDisabled(button, false);
     }
   }
 
@@ -167,14 +168,35 @@ const UI = (() => {
       setFormNotice(purpose === 'register' ? 'registerFormNotice' : 'loginFormNotice', result.mockCode ? `测试验证码：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
       toast(result.mockCode ? `验证码已生成：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
     } catch (err) {
+      if (purpose === 'register' && (err?.code === 'PHONE_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册'))) {
+        switchRegisteredPhoneToLogin(phone);
+        return;
+      }
       showAuthError(purpose, err?.message || '验证码发送失败，请稍后重试');
     }
   }
 
   function showAuthError(scope, message) {
     const text = normalizeUserMessage(message);
+    if (scope === 'register' && text.includes('已注册')) {
+      const phone = document.getElementById('regPhone')?.value.trim() || '';
+      switchRegisteredPhoneToLogin(phone);
+      return;
+    }
     setFormNotice(scope === 'register' ? 'registerFormNotice' : 'loginFormNotice', text);
     toast(text, 'error');
+  }
+
+  function switchRegisteredPhoneToLogin(phone) {
+    hideModal('modalRegister');
+    const loginPhone = document.getElementById('loginPhone');
+    const loginCode = document.getElementById('loginCode');
+    if (loginPhone) loginPhone.value = phone;
+    if (loginCode) loginCode.value = '';
+    setFormNotice('registerPhoneNotice', '');
+    setFormNotice('registerFormNotice', '');
+    setFormNotice('loginFormNotice', '该手机号已注册，请直接登录。已为你切换到登录界面。', 'success');
+    showModal('modalLogin');
   }
 
   function getCodeButton(scope) {
@@ -182,16 +204,14 @@ const UI = (() => {
     return modal?.querySelector('button.btn-outline[onclick*="Code"]') || null;
   }
 
-  function setButtonBusy(button, busy, text) {
+  function setButtonDisabled(button, disabled) {
     if (!button) return;
-    if (busy) {
-      button.dataset.originalText = button.textContent;
-      button.textContent = text || '处理中...';
-      button.disabled = true;
-      return;
-    }
-    button.textContent = button.dataset.originalText || '发送验证码';
-    button.disabled = false;
+    button.disabled = disabled;
+  }
+
+  function clearRegisterPhoneNotice() {
+    setFormNotice('registerPhoneNotice', '');
+    setFormNotice('registerFormNotice', '');
   }
 
   function setFormNotice(id, message, type = 'error') {
@@ -2055,5 +2075,6 @@ const UI = (() => {
     goToMiniProgram,
     claimLizhihuiVoucher,
     switchAuthorityTab,
+    clearRegisterPhoneNotice,
   };
 })();
