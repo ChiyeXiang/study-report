@@ -104,6 +104,15 @@ const APP = (() => {
     });
   }
 
+  async function checkPhoneRegistered(phone) {
+    if (!backendEnabled()) return false;
+    const data = await apiRequest('/api/v1/auth/check-phone', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+    return Boolean(data.registered);
+  }
+
   async function register(name, email, password, phone, verificationCode) {
     if (backendEnabled()) {
       try {
@@ -2977,6 +2986,7 @@ ${expDetails}
     redeemCode,
     hasReportAccess,
     sendVerificationCode,
+    checkPhoneRegistered,
     fetchReport,
     apiRequest,
     generateReport,

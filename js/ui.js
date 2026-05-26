@@ -143,7 +143,18 @@ const UI = (() => {
     const button = getCodeButton('register');
     setButtonDisabled(button, true);
     try {
+      const registered = await APP.checkPhoneRegistered(phone);
+      if (registered) {
+        switchRegisteredPhoneToLogin(phone);
+        return;
+      }
       await sendCode(phone, 'register');
+    } catch (err) {
+      if (err?.code === 'PHONE_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册')) {
+        switchRegisteredPhoneToLogin(phone);
+        return;
+      }
+      showAuthError('register', err?.message || '验证码发送失败，请稍后重试');
     } finally {
       setButtonDisabled(button, false);
     }

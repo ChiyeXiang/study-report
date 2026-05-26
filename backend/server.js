@@ -52,6 +52,7 @@ async function route(req, res) {
 
     if (routeKey === 'GET /api/health') return sendJson(res, 200, { ok: true, service: 'gpn-backend', db: 'mysql' });
 
+    if (routeKey === 'POST /api/v1/auth/check-phone') return checkPhoneRegistered(res, await readJson(req));
     if (routeKey === 'POST /api/v1/auth/send-code') return sendVerificationCode(req, res, await readJson(req));
     if (routeKey === 'POST /api/v1/auth/verify-code') return verifyCodeOnly(res, await readJson(req));
     if (routeKey === 'POST /api/v1/auth/register') return registerUser(res, await readJson(req));
@@ -90,6 +91,13 @@ async function route(req, res) {
       ...(error.code ? { code: error.code } : {}),
     });
   }
+}
+
+async function checkPhoneRegistered(res, body) {
+  const phone = normalizePhone(body.phone);
+  if (!phone) throw httpError(400, '请输入手机号');
+  const existing = await getOne('SELECT id FROM users WHERE phone = ? LIMIT 1', [phone]);
+  return sendJson(res, 200, { registered: Boolean(existing) });
 }
 
 async function sendVerificationCode(req, res, body) {
