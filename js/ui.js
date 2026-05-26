@@ -182,7 +182,7 @@ const UI = (() => {
     const text = String(message || '').replace(/^Error:\s*/i, '');
     if (text.includes('发送过于频繁')) return '验证码发送过于频繁，请稍后再试';
     if (text.includes('验证码错误')) return '验证码错误，请检查后重试';
-    if (text.includes('已注册')) return '该手机号已注册，请直接登录';
+    if (text.includes('已注册')) return '该手机号或邮箱已注册，请直接登录';
     if (text.includes('已过期')) return '验证码已过期，请重新获取';
     return text || '操作失败，请稍后重试';
   }
@@ -427,7 +427,7 @@ const UI = (() => {
     });
   }
 
-  function qNext() {
+  async function qNext() {
     const steps = APP.getQuestionnaireSteps(qState.reportType);
     const total = steps.length;
 
@@ -442,10 +442,29 @@ const UI = (() => {
         showModal('modalLogin');
         return;
       }
-      showPage('generating', {
+      const pendingGeneration = {
         reportType: qState.reportType,
         questionnaireData: qState.data,
-      });
+      };
+      generatingParams = pendingGeneration;
+      try {
+        const hasAccess = await APP.hasReportAccess();
+        if (!hasAccess) {
+          openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员。你可以前往荔智惠购买权益，或输入兑换码兑换一张权益券后继续生成报告。');
+          return;
+        }
+      } catch (err) {
+        const message = err?.message || '';
+        if (err?.code === 'UNAUTHORIZED' || err?.status === 401 || message.includes('登录已过期') || message.includes('Unauthorized')) {
+          handleUnauthorized();
+          return;
+        }
+        if (message.includes('权益') || message.includes('会员') || message.includes('402')) {
+          openEntitlementRequiredModal(message);
+          return;
+        }
+      }
+      showPage('generating', pendingGeneration);
     }
   }
 
