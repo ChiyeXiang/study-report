@@ -155,7 +155,7 @@ const UI = (() => {
         switchRegisteredPhoneToLogin(phone);
         return;
       }
-      showAuthError('register', err || '验证码发送失败，请稍后重试');
+      showVerificationError('register', err || '验证码发送失败，请稍后重试');
     } finally {
       setButtonDisabled(button, false);
     }
@@ -169,6 +169,8 @@ const UI = (() => {
     setButtonDisabled(button, true);
     try {
       await sendCode(phone, 'login');
+    } catch (err) {
+      showVerificationError('login', err || '验证码发送失败，请稍后重试');
     } finally {
       setButtonDisabled(button, false);
     }
@@ -184,7 +186,7 @@ const UI = (() => {
         switchRegisteredPhoneToLogin(phone);
         return;
       }
-      showAuthError(purpose, err || '验证码发送失败，请稍后重试');
+      showVerificationError(purpose, err || '验证码发送失败，请稍后重试');
     }
   }
 
@@ -195,8 +197,21 @@ const UI = (() => {
       switchRegisteredPhoneToLogin(phone);
       return;
     }
+    if (isVerificationMessage(message, text)) {
+      showVerificationError(scope, message);
+      return;
+    }
     setFormNotice(scope === 'register' ? 'registerFormNotice' : 'loginFormNotice', text);
     toast(text, 'error');
+  }
+
+  function showVerificationError(scope, message) {
+    const text = normalizeUserMessage(message);
+    const noticeId = scope === 'register' ? 'registerFormNotice' : 'loginFormNotice';
+    const inputId = scope === 'register' ? 'regCode' : 'loginCode';
+    setFormNotice(noticeId, text);
+    highlightField(inputId);
+    toast(text, 'error', 5200);
   }
 
   function switchRegisteredPhoneToLogin(phone) {
@@ -224,6 +239,17 @@ const UI = (() => {
   function clearRegisterPhoneNotice() {
     setFormNotice('registerPhoneNotice', '');
     setFormNotice('registerFormNotice', '');
+    clearFieldHighlight('regCode');
+  }
+
+  function clearRegisterCodeNotice() {
+    setFormNotice('registerFormNotice', '');
+    clearFieldHighlight('regCode');
+  }
+
+  function clearLoginCodeNotice() {
+    setFormNotice('loginFormNotice', '');
+    clearFieldHighlight('loginCode');
   }
 
   function setFormNotice(id, message, type = 'error') {
@@ -235,14 +261,31 @@ const UI = (() => {
       el.style.background = '';
       el.style.padding = '';
       el.style.borderRadius = '';
+      el.style.border = '';
       return;
     }
     el.style.display = 'block';
     el.style.color = type === 'success' ? 'var(--success)' : 'var(--error)';
     el.style.background = type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
-    el.style.padding = '8px 10px';
+    el.style.padding = '10px 12px';
     el.style.borderRadius = '8px';
+    el.style.border = type === 'success' ? '1px solid rgba(34,197,94,0.22)' : '1px solid rgba(239,68,68,0.26)';
     el.textContent = message;
+  }
+
+  function highlightField(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.borderColor = 'var(--error)';
+    el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.12)';
+    el.focus({ preventScroll: true });
+  }
+
+  function clearFieldHighlight(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.borderColor = '';
+    el.style.boxShadow = '';
   }
 
   function normalizeUserMessage(message) {
@@ -254,6 +297,15 @@ const UI = (() => {
     if (code === 'VERIFICATION_CODE_EXPIRED' || code === 'VERIFICATION_CODE_LOCKED' || text.includes('已过期')) return '验证码已过期，请重新获取';
     if (text.includes('已注册')) return '该手机号或邮箱已注册，请直接登录';
     return text || '操作失败，请稍后重试';
+  }
+
+  function isVerificationMessage(message, normalizedText = '') {
+    const code = typeof message === 'object' && message ? message.code : '';
+    return code.startsWith('VERIFICATION_CODE_')
+      || normalizedText.includes('验证码发送过于频繁')
+      || normalizedText.includes('验证码错误')
+      || normalizedText.includes('验证码已过期')
+      || normalizedText.includes('请先获取短信验证码');
   }
 
   // ---- Questionnaire ----
@@ -2147,6 +2199,8 @@ const UI = (() => {
     handleLogin,
     sendRegisterCode,
     sendLoginCode,
+    clearRegisterCodeNotice,
+    clearLoginCodeNotice,
     renderQuestionnaire,
     qNext,
     qPrev,
