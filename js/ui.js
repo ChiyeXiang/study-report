@@ -139,14 +139,26 @@ const UI = (() => {
     setFormNotice('registerFormNotice', '');
     const phone = document.getElementById('regPhone').value.trim();
     if (!phone) return showAuthError('register', '请先填写手机号');
-    await sendCode(phone, 'register');
+    const button = getCodeButton('register');
+    setButtonBusy(button, true, '正在检查...');
+    try {
+      await sendCode(phone, 'register');
+    } finally {
+      setButtonBusy(button, false);
+    }
   }
 
   async function sendLoginCode() {
     setFormNotice('loginFormNotice', '');
     const phone = document.getElementById('loginPhone').value.trim();
     if (!phone) return showAuthError('login', '请先填写手机号');
-    await sendCode(phone, 'login');
+    const button = getCodeButton('login');
+    setButtonBusy(button, true, '正在发送...');
+    try {
+      await sendCode(phone, 'login');
+    } finally {
+      setButtonBusy(button, false);
+    }
   }
 
   async function sendCode(phone, purpose) {
@@ -163,6 +175,23 @@ const UI = (() => {
     const text = normalizeUserMessage(message);
     setFormNotice(scope === 'register' ? 'registerFormNotice' : 'loginFormNotice', text);
     toast(text, 'error');
+  }
+
+  function getCodeButton(scope) {
+    const modal = document.getElementById(scope === 'register' ? 'modalRegister' : 'modalLogin');
+    return modal?.querySelector('button.btn-outline[onclick*="Code"]') || null;
+  }
+
+  function setButtonBusy(button, busy, text) {
+    if (!button) return;
+    if (busy) {
+      button.dataset.originalText = button.textContent;
+      button.textContent = text || '处理中...';
+      button.disabled = true;
+      return;
+    }
+    button.textContent = button.dataset.originalText || '发送验证码';
+    button.disabled = false;
   }
 
   function setFormNotice(id, message, type = 'error') {
