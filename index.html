@@ -207,6 +207,27 @@
         <h2 class="section-title">从<em>竞争力评估</em>到<em>人生规划</em><br />每一份报告都有独立的分析框架</h2>
         <p class="section-desc">不是问卷自动回复，而是基于真实案例库与多步骤 AI 分析引擎生成的高价值专业报告。</p>
       </div>
+      <div class="home-access-panel" id="homeAccessPanel">
+        <div class="home-access-main">
+          <div class="home-access-kicker">权益与会员</div>
+          <div class="home-access-title" id="homeAccessTitle">登录后查看你的报告权益</div>
+          <div class="home-access-desc" id="homeAccessDesc">报告权益券、会员资格和兑换码都会在这里统一显示。</div>
+        </div>
+        <div class="home-access-stats">
+          <div class="home-access-stat">
+            <span class="home-access-stat-label">可用权益</span>
+            <strong id="homeAccessVoucherCount">--</strong>
+          </div>
+          <div class="home-access-stat">
+            <span class="home-access-stat-label">会员状态</span>
+            <strong id="homeAccessSubscription">未登录</strong>
+          </div>
+        </div>
+        <div class="home-access-redeem">
+          <input id="homeRedeemCodeInput" class="home-access-input" placeholder="输入兑换码" />
+          <button class="btn btn-primary btn-sm" onclick="UI.redeemHomeCode()">兑换</button>
+        </div>
+      </div>
       <div class="reports-grid">
         <!-- Report 1 -->
         <div class="report-card">
@@ -1102,14 +1123,15 @@
 </div>
 
 <!-- Scripts -->
-<script src="js/config.js?v=20260527-ux5"></script>
-<script src="js/app.js?v=20260527-ux5"></script>
-<script src="js/ui.js?v=20260527-ux5"></script>
+<script src="js/config.js?v=20260527-ux7"></script>
+<script src="js/app.js?v=20260527-ux7"></script>
+<script src="js/ui.js?v=20260527-ux7"></script>
 <script>
   // ---- Global Init ----
   APP.loadState();
   UI.updateNav();
   updateAccountCounts();
+  UI.renderHomeEntitlementPanel();
 
   // Update account counts on load
   function updateAccountCounts() {
@@ -1267,6 +1289,9 @@
   const _origShowPage = UI.showPage.bind(UI);
   UI.showPage = function(pageId, params = {}) {
     _origShowPage(pageId, params);
+    if (pageId === 'home') {
+      setTimeout(() => UI.renderHomeEntitlementPanel(), 50);
+    }
     if (pageId === 'account') {
       setTimeout(updateAccountCounts, 50);
     }

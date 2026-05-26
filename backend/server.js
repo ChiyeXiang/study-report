@@ -1441,7 +1441,7 @@ async function enforceVerificationRateLimit(phone, purpose) {
      ORDER BY created_at DESC LIMIT 1`,
     [phone, purpose]
   );
-  if (recent) throw httpError(429, '验证码发送过于频繁，请稍后再试');
+  if (recent) throw httpError(429, '验证码发送过于频繁，请稍后再试', 'VERIFICATION_CODE_RATE_LIMITED');
 
   const hourly = await getOne(
     `SELECT COUNT(*) AS total
@@ -1449,11 +1449,11 @@ async function enforceVerificationRateLimit(phone, purpose) {
      WHERE phone = ? AND purpose = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
     [phone, purpose]
   );
-  if (Number(hourly?.total || 0) >= 5) throw httpError(429, '验证码发送次数过多，请稍后再试');
+  if (Number(hourly?.total || 0) >= 5) throw httpError(429, '验证码发送次数过多，请稍后再试', 'VERIFICATION_CODE_RATE_LIMITED');
 }
 
 async function verifySmsCode(phone, code, purpose) {
-  if (!phone || !code) throw httpError(400, '请输入手机号和验证码');
+  if (!phone || !code) throw httpError(400, '请输入手机号和验证码', 'VERIFICATION_CODE_REQUIRED');
   const expectedHash = hmac(JWT_SECRET, code);
 
   return transaction(async conn => {
@@ -1465,19 +1465,19 @@ async function verifySmsCode(phone, code, purpose) {
        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
       [phone, purpose]
     );
-    if (!record) throw httpError(400, '请先获取短信验证码');
+    if (!record) throw httpError(400, '请先获取短信验证码', 'VERIFICATION_CODE_REQUIRED');
     const fresh = await getOneForUpdate(conn, 'SELECT expires_at <= NOW() AS expired FROM user_verification_codes WHERE id = ? LIMIT 1', [record.id]);
     if (Number(fresh?.expired || 0) === 1) {
       await conn.execute('UPDATE user_verification_codes SET status = "expired", updated_at = NOW() WHERE id = ?', [record.id]);
-      throw httpError(410, '验证码已过期，请重新获取');
+      throw httpError(410, '验证码已过期，请重新获取', 'VERIFICATION_CODE_EXPIRED');
     }
     if (Number(record.attempts) >= Number(record.max_attempts)) {
       await conn.execute('UPDATE user_verification_codes SET status = "locked", updated_at = NOW() WHERE id = ?', [record.id]);
-      throw httpError(429, '验证码错误次数过多，请重新获取');
+      throw httpError(429, '验证码错误次数过多，请重新获取', 'VERIFICATION_CODE_LOCKED');
     }
     if (!timingSafeEqual(record.code_hash, expectedHash)) {
       await conn.execute('UPDATE user_verification_codes SET attempts = attempts + 1, updated_at = NOW() WHERE id = ?', [record.id]);
-      throw httpError(401, '验证码错误，请重试');
+      throw httpError(401, '验证码错误，请重试', 'VERIFICATION_CODE_INVALID');
     }
     await conn.execute('UPDATE user_verification_codes SET status = "verified", verified_at = NOW(), updated_at = NOW() WHERE id = ?', [record.id]);
     await audit(conn, null, 'sms.verify', { phone, purpose, verificationId: record.id });

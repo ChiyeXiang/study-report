@@ -122,7 +122,7 @@ const APP = (() => {
           body: JSON.stringify({ name, email, password, phone, verificationCode }),
         });
         const result = await response.json();
-        if (!response.ok) return { ok: false, msg: result.error || '注册失败，请稍后重试' };
+        if (!response.ok) return { ok: false, msg: result.error || '注册失败，请稍后重试', code: result.code };
         state.user = result.user;
         state.authToken = result.token;
         saveState();
@@ -192,7 +192,7 @@ const APP = (() => {
             : { email: login, password }),
         });
         const result = await response.json();
-        if (!response.ok) return { ok: false, msg: result.error || '登录失败，请稍后重试' };
+        if (!response.ok) return { ok: false, msg: result.error || '登录失败，请稍后重试', code: result.code };
         state.user = result.user;
         state.authToken = result.token;
         saveState();

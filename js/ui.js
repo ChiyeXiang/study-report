@@ -35,6 +35,7 @@ const UI = (() => {
     if (pageId === 'account') renderAccount(params.section || 'overview');
     if (pageId === 'report') renderReportPage(params.reportId);
     if (pageId === 'generating') startGeneration(params);
+    if (pageId === 'home') renderHomeEntitlementPanel();
     updateNav();
   }
 
@@ -97,7 +98,7 @@ const UI = (() => {
         }, 300);
       }
     } else {
-      showAuthError('register', result.msg);
+      showAuthError('register', result);
     }
   }
 
@@ -131,7 +132,7 @@ const UI = (() => {
         }, 300);
       }
     } else {
-      showAuthError('login', result.msg);
+      showAuthError('login', result);
     }
   }
 
@@ -154,7 +155,7 @@ const UI = (() => {
         switchRegisteredPhoneToLogin(phone);
         return;
       }
-      showAuthError('register', err?.message || '验证码发送失败，请稍后重试');
+      showAuthError('register', err || '验证码发送失败，请稍后重试');
     } finally {
       setButtonDisabled(button, false);
     }
@@ -183,7 +184,7 @@ const UI = (() => {
         switchRegisteredPhoneToLogin(phone);
         return;
       }
-      showAuthError(purpose, err?.message || '验证码发送失败，请稍后重试');
+      showAuthError(purpose, err || '验证码发送失败，请稍后重试');
     }
   }
 
@@ -231,19 +232,27 @@ const UI = (() => {
     if (!message) {
       el.style.display = 'none';
       el.textContent = '';
+      el.style.background = '';
+      el.style.padding = '';
+      el.style.borderRadius = '';
       return;
     }
     el.style.display = 'block';
     el.style.color = type === 'success' ? 'var(--success)' : 'var(--error)';
+    el.style.background = type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+    el.style.padding = '8px 10px';
+    el.style.borderRadius = '8px';
     el.textContent = message;
   }
 
   function normalizeUserMessage(message) {
-    const text = String(message || '').replace(/^Error:\s*/i, '');
-    if (text.includes('发送过于频繁')) return '验证码发送过于频繁，请稍后再试';
-    if (text.includes('验证码错误')) return '验证码错误，请检查后重试';
+    const code = typeof message === 'object' && message ? message.code : '';
+    const raw = typeof message === 'object' && message ? (message.msg || message.message || '') : message;
+    const text = String(raw || '').replace(/^Error:\s*/i, '');
+    if (code === 'VERIFICATION_CODE_RATE_LIMITED' || text.includes('发送过于频繁') || text.includes('发送次数过多')) return '验证码发送过于频繁，请稍后再试';
+    if (code === 'VERIFICATION_CODE_INVALID' || text.includes('验证码错误')) return '验证码错误，请重试';
+    if (code === 'VERIFICATION_CODE_EXPIRED' || code === 'VERIFICATION_CODE_LOCKED' || text.includes('已过期')) return '验证码已过期，请重新获取';
     if (text.includes('已注册')) return '该手机号或邮箱已注册，请直接登录';
-    if (text.includes('已过期')) return '验证码已过期，请重新获取';
     return text || '操作失败，请稍后重试';
   }
 
@@ -1959,6 +1968,72 @@ const UI = (() => {
     }).join('');
   }
 
+  async function renderHomeEntitlementPanel() {
+    const titleEl = document.getElementById('homeAccessTitle');
+    const descEl = document.getElementById('homeAccessDesc');
+    const voucherEl = document.getElementById('homeAccessVoucherCount');
+    const subscriptionEl = document.getElementById('homeAccessSubscription');
+    if (!titleEl || !descEl || !voucherEl || !subscriptionEl) return;
+
+    if (!APP.isLoggedIn()) {
+      titleEl.textContent = '登录后查看你的报告权益';
+      descEl.textContent = '报告权益券、会员资格和兑换码都会在这里统一显示。';
+      voucherEl.textContent = '--';
+      subscriptionEl.textContent = '未登录';
+      return;
+    }
+
+    titleEl.textContent = '正在读取你的权益...';
+    descEl.textContent = '请稍候，系统正在同步账户中的权益券和会员资格。';
+    try {
+      await APP.fetchAccountSummary();
+    } catch (e) {
+      descEl.textContent = e.message || '权益数据暂时加载失败，请稍后刷新。';
+    }
+
+    const activeVouchers = (APP.state.vouchers || []).filter(v => {
+      const remaining = Number(v.remainingQuantity ?? v.remaining_quantity ?? v.amount ?? 0);
+      const expiresAt = v.expiresAt || v.expires_at;
+      return v.status === 'active' && remaining > 0 && (!expiresAt || new Date(expiresAt).getTime() > Date.now());
+    });
+    const totalRemaining = activeVouchers.reduce((sum, v) => sum + Number(v.remainingQuantity ?? v.remaining_quantity ?? v.amount ?? 0), 0);
+    const subscription = APP.state.subscription;
+    const subEnd = subscription?.endTime || subscription?.end_time;
+    const hasSubscription = subscription?.status === 'active' && (!subEnd || new Date(subEnd).getTime() > Date.now());
+
+    voucherEl.textContent = `${totalRemaining} 次`;
+    subscriptionEl.textContent = hasSubscription ? '有效会员' : '未开通';
+    titleEl.textContent = hasSubscription || totalRemaining > 0 ? '你的报告权益已就绪' : '当前暂无可用报告权益';
+    descEl.textContent = hasSubscription
+      ? `会员有效期至 ${subEnd ? new Date(subEnd).toLocaleDateString('zh-CN') : '长期'}，有效期内可生成报告。`
+      : totalRemaining > 0
+        ? `你当前有 ${totalRemaining} 次可用报告生成权益，可用于任意一类报告。`
+        : '你可以输入兑换码领取权益，或前往荔智惠购买权益后再生成报告。';
+  }
+
+  async function redeemHomeCode() {
+    if (!APP.isLoggedIn()) {
+      toast('请先登录后再兑换权益', 'warning');
+      showModal('modalLogin');
+      return;
+    }
+    const input = document.getElementById('homeRedeemCodeInput');
+    const code = input?.value.trim();
+    if (!code) {
+      toast('请输入兑换码', 'warning');
+      return;
+    }
+    try {
+      await APP.redeemCode(code);
+      input.value = '';
+      toast('兑换成功，权益已到账', 'success');
+      renderHomeEntitlementPanel();
+      renderVouchers();
+    } catch (e) {
+      toast(e.message || '兑换失败，请检查兑换码', 'error');
+    }
+  }
+
   async function redeemCode() {
     const input = document.getElementById('redeemCodeInput');
     const code = input?.value.trim();
@@ -2079,6 +2154,8 @@ const UI = (() => {
     switchAccountSection,
     renderHistoryReports,
     renderVouchers,
+    renderHomeEntitlementPanel,
+    redeemHomeCode,
     redeemCode,
     redeemCodeAndRetryReport,
     goBuyEntitlement,
