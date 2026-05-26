@@ -609,6 +609,18 @@ async function callModelJson(systemPrompt, userPrompt) {
 
 function buildPrompt(reportType, answers) {
   const typeName = getReportTitle(reportType);
+  const competitivenessSchema = reportType === 'competitiveness'
+    ? [
+      '如果 reportType 是 competitiveness，JSON 还必须包含以下字段：',
+      'overallScore: 0-100 数字。',
+      'scoringDimensions: 对象，必须包含 academics, testScores, majorFit, backgroundDepth, highVisibility, narrativeMaturity 六个 0-100 数字。',
+      'schoolRecommendations: 对象，包含 reach 和 match 两个数组。每个学校包含 name, country, qs, matchScore, note。',
+      'keyGaps: 数组，每项包含 level, title, desc。',
+      'targetMajorRisk: 数组，每项包含 major, risk, note。',
+      'recommendations: 数组，每项包含 title, desc。',
+      'conclusion: 字符串。',
+    ].join('\n')
+    : '';
   return {
     system: [
       '你是一个严谨的教育规划报告生成引擎。',
@@ -616,6 +628,7 @@ function buildPrompt(reportType, answers) {
       'JSON 必须包含 summary, sections, chartData, recommendations, risks, nextSteps 字段。',
       'sections 是数组，每项包含 title 和 content。',
       'chartData 必须适合前端图表渲染，包含至少一个 scores 对象。',
+      competitivenessSchema,
     ].join('\n'),
     user: JSON.stringify({
       reportType,
@@ -628,7 +641,7 @@ function buildPrompt(reportType, answers) {
 }
 
 function normalizeReportResult(reportType, result) {
-  return {
+  const base = {
     ...result,
     reportType,
     summary: result.summary || result.reportSummary || '报告已生成。',
@@ -639,6 +652,140 @@ function normalizeReportResult(reportType, result) {
     nextSteps: result.nextSteps || [],
     raw: result,
   };
+  if (reportType === 'competitiveness') return normalizeCompetitivenessResult(base);
+  return base;
+}
+
+function normalizeCompetitivenessResult(result) {
+  const sections = Array.isArray(result.sections) ? result.sections : [];
+  const chartData = result.chartData && typeof result.chartData === 'object' ? result.chartData : {};
+  const scoringDimensions = normalizeScoreObject(
+    result.scoringDimensions ||
+    chartData.scoringDimensions ||
+    chartData.scores ||
+    result.scores
+  );
+  const scoreValues = Object.values(scoringDimensions).filter(Number.isFinite);
+  const inferredScore = scoreValues.length
+    ? Math.round(scoreValues.reduce((sum, score) => sum + score, 0) / scoreValues.length)
+    : 70;
+  const schoolRecommendations = normalizeSchoolRecommendations(result);
+  const recommendations = normalizeRecommendationList(result.recommendations || result.nextSteps);
+  const keyGaps = normalizeGapList(result.keyGaps || result.risks);
+
+  return {
+    ...result,
+    overallScore: toScore(result.overallScore || chartData.overallScore || chartData.score, inferredScore),
+    scoringDimensions,
+    chartData: {
+      ...chartData,
+      overallScore: toScore(result.overallScore || chartData.overallScore || chartData.score, inferredScore),
+      scoringDimensions,
+      scores: scoringDimensions,
+    },
+    reportSummary: result.reportSummary || result.summary || sections[0]?.content || '报告已生成。',
+    summary: result.summary || result.reportSummary || sections[0]?.content || '报告已生成。',
+    schoolRecommendations,
+    reachSchools: schoolRecommendations.reach,
+    matchSchools: schoolRecommendations.match,
+    keyGaps,
+    gapAnalysis: {
+      ...(result.gapAnalysis || {}),
+      keyGaps,
+    },
+    targetMajorRisk: normalizeMajorRisk(result.targetMajorRisk || result.majorRisks || []),
+    recommendations,
+    reinforcementPlan: {
+      ...(result.reinforcementPlan || {}),
+      topActions: normalizeRecommendationList(result.reinforcementPlan?.topActions || recommendations),
+    },
+    conclusion: result.conclusion || result.nextSteps?.map(item => item.step || item.title || item).filter(Boolean).join('；') || '',
+  };
+}
+
+function normalizeScoreObject(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const defaults = {
+    academics: 70,
+    testScores: 70,
+    majorFit: 70,
+    backgroundDepth: 68,
+    highVisibility: 65,
+    narrativeMaturity: 68,
+  };
+  const aliases = {
+    academics: ['academics', 'academic', 'academicStrength', '学术基础'],
+    testScores: ['testScores', 'languageScores', 'standardizedTests', '语言标化', '标化成绩'],
+    majorFit: ['majorFit', 'fit', 'programFit', '专业匹配度'],
+    backgroundDepth: ['backgroundDepth', 'activities', 'extracurriculars', '背景深度'],
+    highVisibility: ['highVisibility', 'researchInnovation', 'leadership', '辨识度'],
+    narrativeMaturity: ['narrativeMaturity', 'applicationStrategy', 'story', '申请叙事'],
+  };
+  const normalized = {};
+  for (const [key, names] of Object.entries(aliases)) {
+    const found = names.map(name => source[name]).find(item => item !== undefined && item !== null);
+    normalized[key] = toScore(found, defaults[key]);
+  }
+  return normalized;
+}
+
+function normalizeSchoolRecommendations(result) {
+  const sr = result.schoolRecommendations || {};
+  const reach = normalizeSchoolList(sr.reach || result.reachSchools || result.reach || []);
+  const match = normalizeSchoolList(sr.match || result.matchSchools || result.match || []);
+  return {
+    schoolAnalysisText: sr.schoolAnalysisText || result.schoolAnalysisText || '',
+    reach,
+    match,
+  };
+}
+
+function normalizeSchoolList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map((item, index) => ({
+    name: clean(item.name || item.school || item.university || `推荐院校 ${index + 1}`),
+    country: clean(item.country || item.region || ''),
+    qs: clean(item.qs || item.ranking || item.rank || ''),
+    matchScore: toScore(item.matchScore || item.score || item.fitScore, 70),
+    note: clean(item.note || item.reason || item.whyReach || item.whyMatch || item.desc || ''),
+  }));
+}
+
+function normalizeGapList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(item => ({
+    level: clean(item.level || item.urgency || 'important'),
+    title: clean(item.title || item.risk || item.name || '待补强项目'),
+    desc: clean(item.desc || item.description || item.content || item.note || ''),
+  }));
+}
+
+function normalizeMajorRisk(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(item => ({
+    major: clean(item.major || item.name || '目标方向'),
+    risk: toScore(item.risk || item.riskScore || item.score, 50),
+    note: clean(item.note || item.riskNote || item.reason || ''),
+  }));
+}
+
+function normalizeRecommendationList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(item => {
+    if (typeof item === 'string') return { title: item, desc: '' };
+    return {
+      ...item,
+      title: clean(item.title || item.action || item.step || item.name || item.recommendation || '建议事项'),
+      desc: clean(item.desc || item.description || item.expectedImpact || item.content || item.detail || ''),
+      timeline: item.timeline || item.timeframe || '',
+    };
+  });
+}
+
+function toScore(value, fallback = 70) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
 async function consumeEntitlement(conn, entitlementId, userId, reportId) {

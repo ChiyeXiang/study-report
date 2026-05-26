@@ -606,6 +606,15 @@ const UI = (() => {
 
   function renderCompetitivenessReport(body, data, report) {
     const html = [];
+    const score = Number.isFinite(Number(data.overallScore)) ? Number(data.overallScore) : 70;
+    const scoringDimensions = Object.keys(data.scoringDimensions || {}).length ? data.scoringDimensions : {
+      academics: 70,
+      testScores: 70,
+      majorFit: 70,
+      backgroundDepth: 68,
+      highVisibility: 65,
+      narrativeMaturity: 68,
+    };
 
     // 1. 综合评分 + 雷达图
     html.push(`
@@ -617,12 +626,12 @@ const UI = (() => {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
           <div>
             <div style="font-size:80px;font-weight:700;font-family:var(--font-serif);color:var(--navy-500);line-height:1">
-              ${data.overallScore}<span style="font-size:24px;color:var(--gray-400)"> / 100</span>
+              ${score}<span style="font-size:24px;color:var(--gray-400)"> / 100</span>
             </div>
             <div style="font-size:14px;color:var(--gray-400);margin-top:8px">AI 综合竞争力指数</div>
-            <div style="margin-top:16px">${getScoreLabel(data.overallScore)}</div>
+            <div style="margin-top:16px">${getScoreLabel(score)}</div>
             <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
-              ${Object.entries(data.scoringDimensions || {}).map(([k, v]) => {
+              ${Object.entries(scoringDimensions).map(([k, v]) => {
                 const dimLabels = { academics: '学术基础', testScores: '语言/标化竞争力', majorFit: '专业匹配度', backgroundDepth: '背景完整度', highVisibility: '高辨识度成果', narrativeMaturity: '申请叙事成熟度' };
                 return `<div>
                   <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:3px">
@@ -699,7 +708,7 @@ const UI = (() => {
         ${sr.schoolAnalysisText ? `<div style="font-size:14px;color:var(--gray-700);line-height:1.85;margin-bottom:24px">${sr.schoolAnalysisText.replace(/\n/g, '<br>')}</div>` : ''}
         <div style="margin-bottom:12px;font-size:13px;font-weight:600;color:var(--gray-500);letter-spacing:0.5px">冲刺院校（Reach）</div>
         <div class="school-grid" style="margin-bottom:24px">
-          ${(sr.reach || data.reachSchools || []).map(s => `
+          ${(sr.reach || data.reachSchools || []).length ? (sr.reach || data.reachSchools || []).map(s => `
             <div class="school-card reach">
               <div class="school-rank reach">冲刺</div>
               <div class="school-name">${s.name}</div>
@@ -714,11 +723,11 @@ const UI = (() => {
                 </div>
               </div>
             </div>
-          `).join('')}
+          `).join('') : '<div style="font-size:13px;color:var(--gray-400);padding:14px;background:var(--gray-50);border-radius:var(--radius-lg)">模型本次未返回明确冲刺院校，请结合摘要与后续顾问建议进一步确认。</div>'}
         </div>
         <div style="margin-bottom:12px;font-size:13px;font-weight:600;color:var(--gray-500);letter-spacing:0.5px">匹配院校（Match）</div>
         <div class="school-grid">
-          ${(sr.match || data.matchSchools || []).map(s => `
+          ${(sr.match || data.matchSchools || []).length ? (sr.match || data.matchSchools || []).map(s => `
             <div class="school-card match">
               <div class="school-rank match">匹配</div>
               <div class="school-name">${s.name}</div>
@@ -733,7 +742,7 @@ const UI = (() => {
                 </div>
               </div>
             </div>
-          `).join('')}
+          `).join('') : '<div style="font-size:13px;color:var(--gray-400);padding:14px;background:var(--gray-50);border-radius:var(--radius-lg)">模型本次未返回明确匹配院校，建议补充目标国家、专业和成绩后重新生成。</div>'}
         </div>
       </div>
     `);
@@ -836,8 +845,8 @@ const UI = (() => {
               <div style="display:flex;gap:14px;padding:14px 16px;background:var(--gray-50);border-radius:var(--radius-lg)">
                 <div style="width:26px;height:26px;border-radius:50%;background:var(--navy-500);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${i+1}</div>
                 <div>
-                  <div style="font-size:14px;font-weight:600;color:var(--gray-800);margin-bottom:3px">${a.action || a.title}</div>
-                  <div style="font-size:13px;color:var(--gray-500);line-height:1.6">${a.timeline ? `<span style="font-size:11px;background:var(--navy-50);color:var(--navy-500);padding:1px 8px;border-radius:99px;margin-right:6px">${a.timeline}</span>` : ''}${a.expectedImpact || a.desc || ''}</div>
+                  <div style="font-size:14px;font-weight:600;color:var(--gray-800);margin-bottom:3px">${a.action || a.title || a.step || a.recommendation || '建议事项'}</div>
+                  <div style="font-size:13px;color:var(--gray-500);line-height:1.6">${a.timeline ? `<span style="font-size:11px;background:var(--navy-50);color:var(--navy-500);padding:1px 8px;border-radius:99px;margin-right:6px">${a.timeline}</span>` : ''}${a.expectedImpact || a.desc || a.description || a.content || ''}</div>
                 </div>
               </div>
             `).join('')}
@@ -860,7 +869,7 @@ const UI = (() => {
 
     body.innerHTML = html.join('');
     setTimeout(() => {
-      renderRadarChart(data.scoringDimensions);
+      renderRadarChart(scoringDimensions);
       renderRiskChart(data.targetMajorRisk);
     }, 100);
   }

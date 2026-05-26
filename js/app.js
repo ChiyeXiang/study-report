@@ -2795,6 +2795,9 @@ ${expDetails}
     const risks = Array.isArray(data.risks) ? data.risks : [];
     const recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
     const sections = Array.isArray(data.sections) ? data.sections : [];
+    const schoolRecommendations = data.schoolRecommendations || {};
+    const reachSchools = normalizeSchoolList(schoolRecommendations.reach || data.reachSchools || data.reach || []);
+    const matchSchools = normalizeSchoolList(schoolRecommendations.match || data.matchSchools || data.match || []);
 
     return {
       ...data,
@@ -2810,16 +2813,48 @@ ${expDetails}
       reportSummary: data.reportSummary || data.summary || sections[0]?.content || '',
       summary: data.summary || data.reportSummary || sections[0]?.content || '',
       genericSections: sections,
+      schoolRecommendations: {
+        ...schoolRecommendations,
+        reach: reachSchools,
+        match: matchSchools,
+      },
+      reachSchools,
+      matchSchools,
       keyGaps: data.keyGaps || risks.map(item => ({
         level: item.level || item.urgency || 'important',
         title: item.title || item.risk || '待关注风险',
         desc: item.desc || item.description || item.content || '',
       })),
+      targetMajorRisk: normalizeMajorRisk(data.targetMajorRisk || data.majorRisks || []),
       recommendations: recommendations.map(item => typeof item === 'string'
         ? { title: item, desc: '' }
-        : item),
+        : {
+          ...item,
+          title: item.title || item.action || item.step || item.recommendation || '建议事项',
+          desc: item.desc || item.description || item.expectedImpact || item.content || '',
+        }),
       conclusion: data.conclusion || (Array.isArray(data.nextSteps) ? data.nextSteps.map(item => item.step || item.title || item).join('；') : ''),
     };
+  }
+
+  function normalizeSchoolList(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map((item, index) => ({
+      name: item.name || item.school || item.university || `推荐院校 ${index + 1}`,
+      country: item.country || item.region || '',
+      qs: item.qs || item.ranking || item.rank || '',
+      matchScore: Number(item.matchScore || item.score || item.fitScore || 70),
+      note: item.note || item.reason || item.whyReach || item.whyMatch || item.desc || '',
+    }));
+  }
+
+  function normalizeMajorRisk(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map(item => ({
+      major: item.major || item.name || '目标方向',
+      risk: Number(item.risk || item.riskScore || item.score || 50),
+      note: item.note || item.riskNote || item.reason || '',
+    }));
   }
 
   // ---- Service Products ----
