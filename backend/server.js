@@ -85,7 +85,10 @@ async function route(req, res) {
     return sendJson(res, 404, { error: 'Not found' });
   } catch (error) {
     console.error(error);
-    return sendJson(res, error.statusCode || 500, { error: error.message || 'Internal server error' });
+    return sendJson(res, error.statusCode || 500, {
+      error: error.message || 'Internal server error',
+      ...(error.code ? { code: error.code } : {}),
+    });
   }
 }
 
@@ -96,7 +99,7 @@ async function sendVerificationCode(req, res, body) {
 
   if (purpose === 'register') {
     const existing = await getOne('SELECT id FROM users WHERE phone = ? LIMIT 1', [phone]);
-    if (existing) throw httpError(409, '该手机号或邮箱已注册，请直接登录');
+    if (existing) throw httpError(409, '该手机号已注册，请直接登录', 'PHONE_ALREADY_REGISTERED');
   }
 
   await enforceVerificationRateLimit(phone, purpose);
@@ -1588,9 +1591,10 @@ function readJson(req) {
   });
 }
 
-function httpError(statusCode, message) {
+function httpError(statusCode, message, code) {
   const error = new Error(message);
   error.statusCode = statusCode;
+  if (code) error.code = code;
   return error;
 }
 

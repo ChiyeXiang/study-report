@@ -161,7 +161,7 @@ const APP = (() => {
       : (data.error || `API error ${response.status}`);
     const error = new Error(message);
     error.status = response.status;
-    error.code = response.status === 401 ? 'UNAUTHORIZED' : 'API_ERROR';
+    error.code = data.code || (response.status === 401 ? 'UNAUTHORIZED' : 'API_ERROR');
     if (response.status === 401) clearAuthState();
     return error;
   }
