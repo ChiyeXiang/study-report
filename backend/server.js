@@ -80,6 +80,8 @@ async function route(req, res) {
     if (routeKey === 'POST /api/v1/lizhihui/subscriptions/renew') return lizhihuiRenewSubscription(req, res, await readJson(req));
     if (routeKey === 'POST /api/v1/lizhihui/subscriptions/cancel') return lizhihuiCancelSubscription(req, res, await readJson(req));
     if (routeKey === 'POST /api/v1/lizhihui/subscriptions/status') return lizhihuiSyncSubscriptionStatus(req, res, await readJson(req));
+    if (routeKey === 'POST /api/v1/lizhihui/reports/generate') return lizhihuiGenerateReport(req, res, await readJson(req));
+    if (routeKey === 'GET /api/v1/lizhihui/reports/by-order') return lizhihuiGetReportByOrder(req, res, url);
 
     if (routeKey === 'POST /api/v1/admin/redemption-batches') return adminCreateRedemptionBatch(req, res, await readJson(req));
 
@@ -532,6 +534,95 @@ async function lizhihuiSyncSubscriptionStatus(req, res, body) {
   return sendJson(res, 200, { success: true });
 }
 
+async function lizhihuiGenerateReport(req, res, body) {
+  verifyPartnerSignature(req, body);
+  const payload = normalizeLizhihuiReportPayload(body);
+  if (!payload.phone || !payload.externalOrderId) throw httpError(400, 'phone and external_order_id are required');
+  if (!payload.reportType || !payload.answers) throw httpError(400, 'report_type and questionnaire_data are required');
+  if (payload.consumeStatus && !['success', 'paid', 'completed', 'SUCCESS', 'CONSUMED'].includes(payload.consumeStatus)) {
+    throw httpError(409, 'Lizhihui entitlement consumption is not confirmed');
+  }
+  await ensureReportType(payload.reportType);
+
+  const existing = await getOne('SELECT report_id FROM lizhihui_report_orders WHERE external_order_id = ? LIMIT 1', [payload.externalOrderId]);
+  if (existing?.report_id) {
+    const report = await getReportById(existing.report_id);
+    return sendJson(res, 200, { success: true, idempotent: true, report });
+  }
+
+  const jobId = id('job');
+  const submissionId = id('qsub');
+  const reportId = id('report');
+  const user = await getOrCreateLizhihuiUser(payload.phone);
+
+  await execute(
+    'INSERT INTO questionnaire_submissions (id, user_id, report_type, version, answers_json, status) VALUES (?, ?, ?, ?, ?, ?)',
+    [submissionId, user.id, payload.reportType, payload.questionnaireVersion || 'v1', JSON.stringify(payload.answers), 'submitted']
+  );
+  await execute(
+    'INSERT INTO report_jobs (id, user_id, report_type, questionnaire_submission_id, status, progress, model_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [jobId, user.id, payload.reportType, submissionId, 'processing', 10, DASHSCOPE_MODEL]
+  );
+
+  try {
+    const generated = await generateStructuredReport(payload.reportType, payload.answers);
+    const title = getReportTitle(payload.reportType);
+    await transaction(async conn => {
+      await recordExternalEvent(conn, 'lizhihui', 'report_generate', payload.requestId, payload.externalOrderId, body);
+      await conn.execute(
+        'INSERT INTO reports (id, user_id, report_type, questionnaire_submission_id, report_job_id, title, summary, full_content_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [reportId, user.id, payload.reportType, submissionId, jobId, title, generated.summary || generated.reportSummary || '', JSON.stringify(generated), 'completed']
+      );
+      await conn.execute(
+        'INSERT INTO report_chart_data (id, report_id, chart_key, chart_type, data_json) VALUES (?, ?, ?, ?, ?)',
+        [id('chart'), reportId, 'main', 'json', JSON.stringify(generated.chartData || generated.scoringDimensions || {})]
+      );
+      await conn.execute(
+        'INSERT INTO lizhihui_report_orders (id, external_order_id, request_id, phone, user_id, report_id, report_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [id('lhhr'), payload.externalOrderId, payload.requestId || null, payload.phone, user.id, reportId, payload.reportType, 'completed']
+      );
+      await conn.execute(
+        'UPDATE report_jobs SET status = ?, progress = ?, report_id = ?, completed_at = NOW() WHERE id = ?',
+        ['completed', 100, reportId, jobId]
+      );
+      await audit(conn, user.id, 'lizhihui.report.completed', { reportId, reportType: payload.reportType, externalOrderId: payload.externalOrderId });
+    });
+    return sendJson(res, 201, { success: true, jobId, report: await getReportById(reportId) });
+  } catch (error) {
+    await execute('UPDATE report_jobs SET status = ?, error_message = ?, completed_at = NOW() WHERE id = ?', ['failed', error.message, jobId]);
+    throw error;
+  }
+}
+
+async function lizhihuiGetReportByOrder(req, res, url) {
+  const payload = {
+    external_order_id: clean(url.searchParams.get('external_order_id') || url.searchParams.get('externalOrderId') || url.searchParams.get('order_id')),
+    phone: normalizePhone(url.searchParams.get('phone') || ''),
+  };
+  verifyPartnerSignature(req, payload);
+  if (!payload.external_order_id) throw httpError(400, 'external_order_id is required');
+  const order = await getOne(
+    'SELECT * FROM lizhihui_report_orders WHERE external_order_id = ? LIMIT 1',
+    [payload.external_order_id]
+  );
+  if (!order) throw httpError(404, 'Report order not found');
+  if (payload.phone && normalizePhone(order.phone) !== payload.phone) throw httpError(403, 'Phone does not match order');
+  const report = order.report_id ? await getReportById(order.report_id) : null;
+  return sendJson(res, 200, {
+    success: true,
+    order: {
+      externalOrderId: order.external_order_id,
+      requestId: order.request_id,
+      phone: order.phone,
+      reportType: order.report_type,
+      status: order.status,
+      createdAt: order.created_at,
+      updatedAt: order.updated_at,
+    },
+    report,
+  });
+}
+
 async function adminCreateRedemptionBatch(req, res, body) {
   const adminKey = process.env.ADMIN_API_KEY;
   if (!adminKey || req.headers['x-admin-key'] !== adminKey) throw httpError(401, 'Unauthorized');
@@ -630,7 +721,8 @@ function buildPrompt(reportType, answers) {
       '如果 reportType 是 competitiveness，JSON 还必须包含以下字段：',
       'overallScore: 0-100 数字。',
       'scoringDimensions: 对象，必须包含 academics, testScores, majorFit, backgroundDepth, highVisibility, narrativeMaturity 六个 0-100 数字。',
-      'schoolRecommendations: 对象，必须包含 reach 和 match 两个数组；reach 至少 3 个学校，match 至少 3 个学校。每个学校包含 name, country, qs, matchScore, note。',
+      'schoolRecommendations: 对象，必须包含 reach 和 match 两个数组；reach 至少 3 个学校，match 至少 3 个学校。每个学校包含 name, country, qsRank, usNewsRank, rankingSource, rankingValue, matchScore, note。',
+      '院校排名字段要求：尽量给出该学校最新 QS 世界大学排名与 US News Best Global Universities 排名；rankingSource/rankingValue 必须取两者中更靠前的排名（数字更小者），rankingSource 只允许 QS 或 USNEWS。',
       'keyGaps: 数组，至少 3 项，每项包含 level, title, desc。',
       'targetMajorRisk: 数组，至少 3 项，每项包含 major, risk, note。',
       'recommendations: 数组，至少 3 项，每项包含 title, desc。',
@@ -763,14 +855,75 @@ function normalizeSchoolRecommendations(result, answers = {}) {
 
 function normalizeSchoolList(list) {
   if (!Array.isArray(list)) return [];
-  return list.map((item, index) => ({
-    name: clean(item.name || item.school || item.university || `推荐院校 ${index + 1}`),
-    country: clean(item.country || item.region || ''),
-    qs: clean(item.qs || item.ranking || item.rank || ''),
-    matchScore: toScore(item.matchScore || item.score || item.fitScore, 70),
-    note: clean(item.note || item.reason || item.whyReach || item.whyMatch || item.desc || ''),
-  }));
+  return list.map((item, index) => {
+    const name = clean(item.name || item.school || item.university || `推荐院校 ${index + 1}`);
+    const ranking = normalizeSchoolRanking(name, item);
+    return {
+      name,
+      country: clean(item.country || item.region || ''),
+      qs: ranking.display,
+      rankingSource: ranking.source,
+      rankingValue: ranking.value,
+      qsRank: ranking.qsRank,
+      usNewsRank: ranking.usNewsRank,
+      matchScore: toScore(item.matchScore || item.score || item.fitScore, 70),
+      note: clean(item.note || item.reason || item.whyReach || item.whyMatch || item.desc || ''),
+    };
+  });
 }
+
+function normalizeSchoolRanking(schoolName, item = {}) {
+  const known = SCHOOL_RANKING_REFERENCE[normalizeSchoolNameKey(schoolName)] || {};
+  const qsRank = parseRank(item.qsRank || item.qs_rank || item.qs || known.qsRank);
+  const usNewsRank = parseRank(item.usNewsRank || item.us_news_rank || item.usNews || item.usnews || known.usNewsRank);
+  let source = clean(item.rankingSource || item.ranking_source || '').toUpperCase();
+  let value = parseRank(item.rankingValue || item.ranking_value || item.ranking || item.rank);
+
+  if (qsRank && usNewsRank) {
+    source = qsRank <= usNewsRank ? 'QS' : 'USNEWS';
+    value = Math.min(qsRank, usNewsRank);
+  } else if (qsRank) {
+    source = 'QS';
+    value = qsRank;
+  } else if (usNewsRank) {
+    source = 'USNEWS';
+    value = usNewsRank;
+  } else if (source && value) {
+    source = source.includes('US') ? 'USNEWS' : 'QS';
+  }
+
+  return {
+    source,
+    value,
+    qsRank: qsRank || null,
+    usNewsRank: usNewsRank || null,
+    display: source && value ? `${source}排名${value}` : clean(item.qs || item.ranking || item.rank || ''),
+  };
+}
+
+function parseRank(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const match = String(value).match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function normalizeSchoolNameKey(name) {
+  return String(name || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9\u4e00-\u9fa5]+/g, ' ').trim();
+}
+
+const SCHOOL_RANKING_REFERENCE = {
+  'university of southern california': { qsRank: 146, usNewsRank: 28 },
+  '南加州大学': { qsRank: 146, usNewsRank: 28 },
+  'imperial college london': { qsRank: 2, usNewsRank: 11 },
+  '帝国理工大学': { qsRank: 2, usNewsRank: 11 },
+  'new york university': { qsRank: 43, usNewsRank: 31 },
+  '纽约大学': { qsRank: 43, usNewsRank: 31 },
+  'university of hong kong': { qsRank: 11, usNewsRank: 44 },
+  'the university of hong kong': { qsRank: 11, usNewsRank: 44 },
+  '香港大学': { qsRank: 11, usNewsRank: 44 },
+  'city university of hong kong': { qsRank: 63, usNewsRank: 70 },
+  '香港城市大学': { qsRank: 63, usNewsRank: 70 },
+};
 
 function normalizeGapList(list) {
   if (!Array.isArray(list)) return [];
@@ -969,6 +1122,20 @@ async function getReportForUser(reportId, userId) {
   const report = await getOne(
     'SELECT id, report_type AS reportType, title, summary, full_content_json AS fullContentJson, status, created_at AS createdAt FROM reports WHERE id = ? AND user_id = ?',
     [reportId, userId]
+  );
+  if (!report) return null;
+  const charts = await query('SELECT chart_key AS chartKey, chart_type AS chartType, data_json AS dataJson FROM report_chart_data WHERE report_id = ?', [reportId]);
+  return {
+    ...report,
+    reportData: parseJson(report.fullContentJson),
+    charts: charts.map(c => ({ ...c, data: parseJson(c.dataJson) })),
+  };
+}
+
+async function getReportById(reportId) {
+  const report = await getOne(
+    'SELECT id, user_id AS userId, report_type AS reportType, title, summary, full_content_json AS fullContentJson, status, created_at AS createdAt FROM reports WHERE id = ?',
+    [reportId]
   );
   if (!report) return null;
   const charts = await query('SELECT chart_key AS chartKey, chart_type AS chartType, data_json AS dataJson FROM report_chart_data WHERE report_id = ?', [reportId]);
@@ -1200,6 +1367,21 @@ async function initSchema() {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uniq_channel_request (channel, request_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS lizhihui_report_orders (
+      id VARCHAR(64) PRIMARY KEY,
+      external_order_id VARCHAR(128) NOT NULL UNIQUE,
+      request_id VARCHAR(128),
+      phone VARCHAR(32) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      report_id VARCHAR(64),
+      report_type VARCHAR(64) NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'processing',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_lhh_orders_phone (phone),
+      INDEX idx_lhh_orders_user (user_id),
+      INDEX idx_lhh_orders_report (report_id)
+    )`,
     `CREATE TABLE IF NOT EXISTS audit_logs (
       id VARCHAR(64) PRIMARY KEY,
       user_id VARCHAR(64),
@@ -1280,6 +1462,18 @@ function normalizeLizhihuiPayload(body) {
   };
 }
 
+function normalizeLizhihuiReportPayload(body) {
+  return {
+    requestId: clean(body.request_id || body.requestId || body.event_id),
+    phone: normalizePhone(body.phone || body.user_phone || body.userMobile),
+    externalOrderId: clean(body.external_order_id || body.externalOrderId || body.order_id || body.partnerOrderId),
+    reportType: clean(body.report_type || body.reportType),
+    questionnaireVersion: clean(body.questionnaire_version || body.questionnaireVersion || 'v1'),
+    answers: body.questionnaire_data || body.questionnaireData || body.answers,
+    consumeStatus: clean(body.consume_status || body.consumeStatus || body.status || body.pay_status),
+  };
+}
+
 function assertPaidStatus(payload) {
   if (!payload.status) return;
   const paid = ['paid', 'success', 'paid_success', 'completed', 'SUCCESS', 'TRADE_SUCCESS'];
@@ -1314,6 +1508,24 @@ async function audit(conn, userId, action, metadata) {
 async function publicUserById(userId) {
   const user = await getOne('SELECT * FROM users WHERE id = ?', [userId]);
   return publicUser(user);
+}
+
+async function getOrCreateLizhihuiUser(phone) {
+  const normalizedPhone = normalizePhone(phone);
+  if (!normalizedPhone) throw httpError(400, 'phone is required');
+  const existing = await getOne('SELECT * FROM users WHERE phone = ? LIMIT 1', [normalizedPhone]);
+  if (existing) return existing;
+
+  const user = {
+    id: id('user'),
+    name: '荔智惠用户',
+    phone: normalizedPhone,
+  };
+  await execute(
+    'INSERT INTO users (id, name, email, phone, password_hash, status) VALUES (?, ?, ?, ?, ?, ?)',
+    [user.id, user.name, null, user.phone, null, 'active']
+  );
+  return getOne('SELECT * FROM users WHERE id = ? LIMIT 1', [user.id]);
 }
 
 function publicUser(row) {

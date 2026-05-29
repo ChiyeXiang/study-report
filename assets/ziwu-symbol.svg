@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-label="子午象限图形">
+  <path d="M16 38C48 5 106 2 141 29" fill="none" stroke="#A62622" stroke-width="16" stroke-linecap="round"/>
+  <path d="M22 85C62 112 121 103 149 62" fill="none" stroke="#123C46" stroke-width="17" stroke-linecap="round"/>
+  <path d="M91 72L146 17L112 86Z" fill="#123C46"/>
+</svg>

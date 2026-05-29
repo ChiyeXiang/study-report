@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" role="img" aria-label="子午象限">
+  <rect width="360" height="96" rx="16" fill="none"/>
+  <g transform="translate(18 12)">
+    <path d="M14 22C38 1 80 0 104 16" fill="none" stroke="#A62622" stroke-width="12" stroke-linecap="round"/>
+    <path d="M20 58C48 78 92 75 116 46" fill="none" stroke="#123C46" stroke-width="13" stroke-linecap="round"/>
+    <path d="M70 56L114 16L87 66Z" fill="#123C46"/>
+  </g>
+  <text x="154" y="43" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="26" font-weight="700" fill="#123C46">子午象限</text>
+  <text x="154" y="68" font-family="Arial, sans-serif" font-size="12" letter-spacing="2" fill="#6B7280">MERIDIAN QUADRANT</text>
+</svg>

@@ -39,6 +39,12 @@ const UI = (() => {
     updateNav();
   }
 
+  function scrollQuestionnaireTop() {
+    const layout = document.querySelector('.questionnaire-layout');
+    const top = layout ? layout.offsetTop : 0;
+    window.scrollTo({ top, behavior: 'smooth' });
+  }
+
   function updateNav() {
     const user = APP.state.user;
     const navUser = document.getElementById('navUser');
@@ -320,6 +326,7 @@ const UI = (() => {
     qState.currentStep = 0;
     qState.data = {};
     renderQStep();
+    scrollQuestionnaireTop();
   }
 
   function renderQStep() {
@@ -555,10 +562,10 @@ const UI = (() => {
     if (qState.currentStep < total - 1) {
       qState.currentStep++;
       renderQStep();
-      document.getElementById('questionnaireBody').scrollTop = 0;
+      scrollQuestionnaireTop();
     } else {
       // Submit — go to generating
-      if (!APP.isLoggedIn()) {
+      if (!APP.isLoggedIn() && !APP.isLizhihuiMode()) {
         toast('请先登录或注册，以保存您的报告', 'warning');
         showModal('modalLogin');
         return;
@@ -569,7 +576,7 @@ const UI = (() => {
       };
       generatingParams = pendingGeneration;
       try {
-        const hasAccess = await APP.hasReportAccess();
+        const hasAccess = APP.isLizhihuiMode() ? true : await APP.hasReportAccess();
         if (!hasAccess) {
           openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员。你可以前往荔智惠购买权益，或输入兑换码兑换一张权益券后继续生成报告。');
           return;
@@ -593,6 +600,7 @@ const UI = (() => {
     if (qState.currentStep > 0) {
       qState.currentStep--;
       renderQStep();
+      scrollQuestionnaireTop();
     }
   }
 
@@ -605,7 +613,7 @@ const UI = (() => {
     '正在生成结构化分析结果…',
     '正在生成最终报告文案…',
     '正在计算图表数据…',
-    '正在完成报告并发放代金券…',
+    '正在生成报告…',
   ];
 
   let generatingParams = null;
@@ -613,7 +621,7 @@ const UI = (() => {
   async function startGeneration(params) {
     generatingParams = params;
     try {
-      const hasAccess = await APP.hasReportAccess();
+      const hasAccess = APP.isLizhihuiMode() ? true : await APP.hasReportAccess();
       if (!hasAccess) {
         openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员，请先兑换权益或前往荔智惠购买。');
         return;
@@ -682,7 +690,7 @@ const UI = (() => {
       await delay(600);
 
       // Show completion notification
-      toast(voucher ? `🎉 报告生成完成！已向您账户发放 ¥${voucher.amount} 代金券` : '🎉 报告生成完成！本次已使用您的报告权益', 'success', 5000);
+      toast(voucher ? `🎉 报告生成完成！已向您账户发放 ¥${voucher.amount} 代金券` : '🎉 报告生成完成！', 'success', 5000);
 
       // Navigate to report page
       showPage('report', { reportId: report.id });
@@ -907,6 +915,13 @@ const UI = (() => {
     return String(text || '').replace(/\n/g, '<br>');
   }
 
+  function formatSchoolMeta(s = {}) {
+    const ranking = s.rankingSource && s.rankingValue
+      ? `${s.rankingSource}排名${s.rankingValue}`
+      : (s.qs || s.ranking || s.rank || '');
+    return [s.country, ranking].filter(Boolean).join(' · ');
+  }
+
   function renderCompetitivenessReport(body, data, report) {
     const html = [];
     const score = Number.isFinite(Number(data.overallScore)) ? Number(data.overallScore) : 70;
@@ -1015,7 +1030,7 @@ const UI = (() => {
             <div class="school-card reach">
               <div class="school-rank reach">冲刺</div>
               <div class="school-name">${s.name}</div>
-              <div class="school-qs">${s.country} · ${s.qs}</div>
+              <div class="school-qs">${formatSchoolMeta(s)}</div>
               <div style="font-size:12px;color:var(--gray-400);margin-top:4px">${s.whyReach || s.note || ''}</div>
               <div style="margin-top:8px">
                 <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-400);margin-bottom:4px">
@@ -1034,7 +1049,7 @@ const UI = (() => {
             <div class="school-card match">
               <div class="school-rank match">匹配</div>
               <div class="school-name">${s.name}</div>
-              <div class="school-qs">${s.country} · ${s.qs}</div>
+              <div class="school-qs">${formatSchoolMeta(s)}</div>
               <div style="font-size:12px;color:var(--gray-400);margin-top:4px">${s.whyMatch || s.note || ''}</div>
               <div style="margin-top:8px">
                 <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-400);margin-bottom:4px">

@@ -769,6 +769,7 @@
               <div class="report-meta-item">🔧 <strong id="reportEngine"></strong></div>
             </div>
           </div>
+          <img class="report-brand-logo" src="assets/ziwu-logo.svg" alt="子午象限" />
           <div class="report-actions">
             <button class="btn btn-outline-white btn-sm" onclick="UI.showPage('account', {section:'reports'})">查看历史报告</button>
             <button class="btn btn-gold btn-sm" onclick="UI.showPage('account', {section:'vouchers'})">查看我的代金券 🎫</button>
@@ -1123,15 +1124,16 @@
 </div>
 
 <!-- Scripts -->
-<script src="js/config.js?v=20260527-ux8"></script>
-<script src="js/app.js?v=20260527-ux8"></script>
-<script src="js/ui.js?v=20260527-ux8"></script>
+<script src="js/config.js?v=20260529-mobile-lhh1"></script>
+<script src="js/app.js?v=20260529-mobile-lhh1"></script>
+<script src="js/ui.js?v=20260529-mobile-lhh1"></script>
 <script>
   // ---- Global Init ----
   APP.loadState();
   UI.updateNav();
   updateAccountCounts();
   UI.renderHomeEntitlementPanel();
+  initEntryMode();
 
   // Update account counts on load
   function updateAccountCounts() {
@@ -1172,6 +1174,10 @@
   }
 
   function startReport(type) {
+    if (APP.isLizhihuiMode?.()) {
+      UI.showPage('questionnaire', { reportType: type });
+      return;
+    }
     if (!APP.isLoggedIn()) {
       UI.toast('请先登录或注册账户，以保存您的报告', 'info');
       // 记录用户想开始的报告类型，登录后自动跳转
@@ -1180,6 +1186,15 @@
       return;
     }
     UI.showPage('questionnaire', { reportType: type });
+  }
+
+  function initEntryMode() {
+    if (!APP.isLizhihuiMode?.()) return;
+    document.body.classList.add('lizhihui-embedded');
+    const context = APP.getEntryContext?.() || {};
+    const reportType = APP.REPORT_TYPES?.[context.reportType] ? context.reportType : 'competitiveness';
+    window._pendingReportType = null;
+    setTimeout(() => UI.showPage('questionnaire', { reportType }), 80);
   }
 
   function handleLogout() {

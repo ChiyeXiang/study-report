@@ -26,7 +26,23 @@ const APP = (() => {
     reports: [],
     vouchers: [],
     authToken: null,
+    entryContext: detectEntryContext(),
   };
+
+  function detectEntryContext() {
+    const params = new URLSearchParams(window.location.search || '');
+    const channel = (params.get('channel') || params.get('source') || '').toLowerCase();
+    const reportType = params.get('reportType') || params.get('report_type');
+    return {
+      channel,
+      reportType,
+      phone: params.get('phone') || params.get('user_phone') || params.get('mobile') || '',
+      externalOrderId: params.get('external_order_id') || params.get('externalOrderId') || params.get('order_id') || '',
+      requestId: params.get('request_id') || params.get('requestId') || '',
+      consumeStatus: params.get('consume_status') || params.get('consumeStatus') || '',
+      embedded: channel === 'lizhihui' || params.get('embedded') === '1',
+    };
+  }
 
   function backendEnabled() {
     return !!CONFIG.BACKEND_API_BASE || CONFIG.USE_MOCK === false;
@@ -219,6 +235,14 @@ const APP = (() => {
 
   function isLoggedIn() {
     return !!state.user;
+  }
+
+  function isLizhihuiMode() {
+    return state.entryContext?.channel === 'lizhihui';
+  }
+
+  function getEntryContext() {
+    return state.entryContext || {};
   }
 
   async function fetchAccountSummary() {
@@ -2736,19 +2760,31 @@ ${expDetails}
     // Step 1: Structured data extraction
     let reportData;
     let backendReportId = null;
-    const usedBackend = backendEnabled() && state.authToken;
-    if (backendEnabled() && !state.authToken) {
+    const lizhihuiMode = isLizhihuiMode();
+    const usedBackend = backendEnabled() && (state.authToken || lizhihuiMode);
+    if (backendEnabled() && !state.authToken && !lizhihuiMode) {
       throw new Error('请先登录账户后再生成报告');
     }
     if (usedBackend) {
       try {
-        const response = await fetch(apiUrl('/api/v1/reports'), {
+        if (lizhihuiMode && (!state.entryContext.phone || !state.entryContext.externalOrderId)) {
+          throw new Error('荔智惠入口缺少手机号或订单号，请从荔智惠权益广场重新进入。');
+        }
+        const lizhihuiPayload = {
+          request_id: state.entryContext.requestId || `lhh_web_${Date.now()}`,
+          phone: state.entryContext.phone,
+          external_order_id: state.entryContext.externalOrderId,
+          report_type: reportType,
+          questionnaire_data: questionnaireData,
+          consume_status: state.entryContext.consumeStatus || 'success',
+        };
+        const response = await fetch(apiUrl(lizhihuiMode ? '/api/v1/lizhihui/reports/generate' : '/api/v1/reports'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${state.authToken}`,
+            ...(state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {}),
           },
-          body: JSON.stringify({
+          body: JSON.stringify(lizhihuiMode ? lizhihuiPayload : {
             reportType,
             questionnaireData,
             model: CONFIG.MODEL,
@@ -2868,14 +2904,73 @@ ${expDetails}
 
   function normalizeSchoolList(list) {
     if (!Array.isArray(list)) return [];
-    return list.map((item, index) => ({
-      name: item.name || item.school || item.university || `推荐院校 ${index + 1}`,
-      country: item.country || item.region || '',
-      qs: item.qs || item.ranking || item.rank || '',
-      matchScore: Number(item.matchScore || item.score || item.fitScore || 70),
-      note: item.note || item.reason || item.whyReach || item.whyMatch || item.desc || '',
-    }));
+    return list.map((item, index) => {
+      const name = item.name || item.school || item.university || `推荐院校 ${index + 1}`;
+      const ranking = normalizeSchoolRanking(name, item);
+      return {
+        name,
+        country: item.country || item.region || '',
+        qs: ranking.display,
+        rankingSource: ranking.source,
+        rankingValue: ranking.value,
+        qsRank: ranking.qsRank,
+        usNewsRank: ranking.usNewsRank,
+        matchScore: Number(item.matchScore || item.score || item.fitScore || 70),
+        note: item.note || item.reason || item.whyReach || item.whyMatch || item.desc || '',
+      };
+    });
   }
+
+  function normalizeSchoolRanking(schoolName, item = {}) {
+    const known = SCHOOL_RANKING_REFERENCE[normalizeSchoolNameKey(schoolName)] || {};
+    const qsRank = parseRank(item.qsRank || item.qs_rank || item.qs || known.qsRank);
+    const usNewsRank = parseRank(item.usNewsRank || item.us_news_rank || item.usNews || item.usnews || known.usNewsRank);
+    let source = String(item.rankingSource || item.ranking_source || '').toUpperCase();
+    let value = parseRank(item.rankingValue || item.ranking_value || item.ranking || item.rank);
+    if (qsRank && usNewsRank) {
+      source = qsRank <= usNewsRank ? 'QS' : 'USNEWS';
+      value = Math.min(qsRank, usNewsRank);
+    } else if (qsRank) {
+      source = 'QS';
+      value = qsRank;
+    } else if (usNewsRank) {
+      source = 'USNEWS';
+      value = usNewsRank;
+    } else if (source && value) {
+      source = source.includes('US') ? 'USNEWS' : 'QS';
+    }
+    return {
+      source,
+      value,
+      qsRank: qsRank || null,
+      usNewsRank: usNewsRank || null,
+      display: source && value ? `${source}排名${value}` : String(item.qs || item.ranking || item.rank || ''),
+    };
+  }
+
+  function parseRank(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const match = String(value).match(/\d+/);
+    return match ? Number(match[0]) : null;
+  }
+
+  function normalizeSchoolNameKey(name) {
+    return String(name || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9\u4e00-\u9fa5]+/g, ' ').trim();
+  }
+
+  const SCHOOL_RANKING_REFERENCE = {
+    'university of southern california': { qsRank: 146, usNewsRank: 28 },
+    '南加州大学': { qsRank: 146, usNewsRank: 28 },
+    'imperial college london': { qsRank: 2, usNewsRank: 11 },
+    '帝国理工大学': { qsRank: 2, usNewsRank: 11 },
+    'new york university': { qsRank: 43, usNewsRank: 31 },
+    '纽约大学': { qsRank: 43, usNewsRank: 31 },
+    'university of hong kong': { qsRank: 11, usNewsRank: 44 },
+    'the university of hong kong': { qsRank: 11, usNewsRank: 44 },
+    '香港大学': { qsRank: 11, usNewsRank: 44 },
+    'city university of hong kong': { qsRank: 63, usNewsRank: 70 },
+    '香港城市大学': { qsRank: 63, usNewsRank: 70 },
+  };
 
   function normalizeMajorRisk(list) {
     if (!Array.isArray(list)) return [];
@@ -2987,6 +3082,8 @@ ${expDetails}
     hasReportAccess,
     sendVerificationCode,
     checkPhoneRegistered,
+    isLizhihuiMode,
+    getEntryContext,
     fetchReport,
     apiRequest,
     generateReport,
