@@ -49,13 +49,16 @@ const UI = (() => {
     const user = APP.state.user;
     const navUser = document.getElementById('navUser');
     const navLogin = document.getElementById('navLogin');
+    const navMobileRegister = document.getElementById('navMobileRegister');
     if (user) {
       navUser.classList.remove('hidden');
       navLogin.classList.add('hidden');
+      navMobileRegister?.classList.add('hidden');
       document.getElementById('navUserName').textContent = user.name.substring(0, 1);
     } else {
       navUser.classList.add('hidden');
       navLogin.classList.remove('hidden');
+      navMobileRegister?.classList.remove('hidden');
     }
   }
 
@@ -941,7 +944,7 @@ const UI = (() => {
           <div class="report-section-icon" style="background:#e8f0f9">📊</div>
           <div class="report-section-title">综合竞争力评分</div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
+        <div class="score-radar-grid">
           <div>
             <div style="font-size:80px;font-weight:700;font-family:var(--font-serif);color:var(--navy-500);line-height:1">
               ${score}<span style="font-size:24px;color:var(--gray-400)"> / 100</span>
@@ -1704,6 +1707,7 @@ const UI = (() => {
       applicationStrategy: '申请策略',
     };
     if (canvas._chart) canvas._chart.destroy();
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
     const chart = new Chart(canvas, {
       type: 'radar',
       data: {
@@ -1719,7 +1723,16 @@ const UI = (() => {
         }],
       },
       options: {
-        scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: 'rgba(0,0,0,0.08)' }, pointLabels: { font: { size: 11 }, color: '#4a5270' } } },
+        responsive: true,
+        maintainAspectRatio: true,
+        layout: { padding: isMobile ? { left: 28, right: 28, top: 18, bottom: 18 } : 18 },
+        scales: { r: {
+          min: 0,
+          max: 100,
+          ticks: { display: false },
+          grid: { color: 'rgba(0,0,0,0.08)' },
+          pointLabels: { font: { size: isMobile ? 9 : 11 }, color: '#4a5270', padding: isMobile ? 16 : 8 },
+        } },
         plugins: { legend: { display: false } },
       },
     });

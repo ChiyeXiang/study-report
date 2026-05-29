@@ -233,16 +233,28 @@ ul, ol { list-style: none; }
   background: linear-gradient(135deg, var(--navy-300), var(--navy-400));
   box-shadow: var(--shadow-md);
 }
-.nav-mobile-btn {
+.nav-mobile-btn,
+.nav-mobile-register {
   display: none;
   background: none;
   color: white;
   font-size: 20px;
   padding: var(--space-2);
 }
+.nav-mobile-register {
+  padding: 7px 13px;
+  background: linear-gradient(135deg, var(--navy-400), var(--navy-500));
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
 @media (max-width: 900px) {
   .nav-links { display: none; }
-  .nav-mobile-btn { display: block; }
+  .nav-mobile-btn { display: none; }
+  .nav-mobile-register { display: inline-flex; align-items: center; justify-content: center; }
 }
 
 .lizhihui-embedded .nav-links,
@@ -1698,9 +1710,9 @@ ul, ol { list-style: none; }
   gap: var(--space-8);
 }
 .report-brand-logo {
-  width: 138px;
-  max-width: 22vw;
-  opacity: 0.88;
+  width: 210px;
+  max-width: 28vw;
+  opacity: 0.92;
   flex-shrink: 0;
   align-self: flex-start;
   filter: drop-shadow(0 8px 22px rgba(0,0,0,0.14));
@@ -1761,8 +1773,8 @@ ul, ol { list-style: none; }
   bottom: 40px;
   width: min(38vw, 360px);
   height: min(30vw, 280px);
-  background: url('../assets/ziwu-symbol.svg') center/contain no-repeat;
-  opacity: 0.035;
+  background: url('../assets/axis-quadrant-logo.png') center/contain no-repeat;
+  opacity: 0.026;
   pointer-events: none;
   z-index: 0;
 }
@@ -1901,6 +1913,13 @@ ul, ol { list-style: none; }
 .chart-canvas-wrap {
   max-width: 320px;
   margin: 0 auto;
+  overflow: visible;
+}
+.score-radar-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 24px;
+  align-items: center;
 }
 
 /* ==============================
@@ -2305,7 +2324,8 @@ ul, ol { list-style: none; }
   .nav-user-btn span:last-child { white-space: nowrap; display: inline-block; }
   .nav-user-btn span:first-child { width: 18px !important; height: 18px !important; font-size: 11px !important; flex-shrink: 0; }
   .nav-cta { display: none; }
-  .nav-mobile-btn { font-size: 18px; padding: 5px; }
+  .nav-mobile-btn { display: none; }
+  .nav-mobile-register { padding: 7px 12px; font-size: 12px; }
   .questionnaire-top { padding: 20px 0 18px; }
   .questionnaire-body { padding: 22px 14px 96px; max-width: 100%; }
   .questionnaire-section-title { font-size: 25px; line-height: 1.25; overflow-wrap: anywhere; }
@@ -2345,7 +2365,7 @@ ul, ol { list-style: none; }
   .hero-stats { gap: var(--space-6); }
   .report-header { padding: 28px 0 24px; }
   .report-header-inner { flex-direction: column; gap: 14px; }
-  .report-brand-logo { width: 116px; max-width: 44vw; order: -1; align-self: flex-end; opacity: 0.72; margin-bottom: -8px; }
+  .report-brand-logo { width: 150px; max-width: 46vw; order: -1; align-self: flex-end; opacity: 0.8; margin-bottom: -8px; }
   .report-title { font-size: 25px; line-height: 1.24; overflow-wrap: anywhere; }
   .report-meta { gap: 8px; }
   .report-meta-item { font-size: 12px; max-width: 100%; overflow-wrap: anywhere; }
@@ -2358,7 +2378,8 @@ ul, ol { list-style: none; }
   .report-section-title { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
   .report-summary-box { padding: 16px; border-radius: 14px; margin-bottom: 16px; }
   .report-summary-text { font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
-  .chart-canvas-wrap { max-width: 100%; overflow: hidden; }
+  .chart-canvas-wrap { width: 100%; max-width: min(100%, 360px); overflow: visible; padding: 0 6px; }
+  .score-radar-grid { grid-template-columns: 1fr; gap: 18px; }
   .chart-canvas-wrap canvas, canvas { max-width: 100% !important; height: auto !important; }
   .account-layout { flex-direction: column; }
   .account-sidebar { width: 100%; height: auto; position: static; flex-direction: row; overflow-x: auto; padding: var(--space-3) var(--space-4); }
