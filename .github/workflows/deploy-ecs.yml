@@ -1,0 +1,32 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches:
+      - codex-version
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to ECS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_USER }}
+          key: ${{ secrets.ECS_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /var/www/study-report
+            git fetch origin
+            git checkout codex-version
+            git pull --ff-only origin codex-version
+
+            cd backend
+            npm install
+            npm run migrate
+            pm2 restart gpn-backend --update-env
+
+            sudo systemctl reload nginx
