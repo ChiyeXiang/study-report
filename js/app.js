@@ -2513,31 +2513,19 @@ ${expDetails}
     // Step 1: Structured data extraction
     let reportData;
     let backendReportId = null;
-    const lizhihuiMode = isLizhihuiMode();
-    const usedBackend = backendEnabled() && (state.authToken || lizhihuiMode);
-    if (backendEnabled() && !state.authToken && !lizhihuiMode) {
+    const usedBackend = backendEnabled() && state.authToken;
+    if (backendEnabled() && !state.authToken) {
       throw new Error('请先登录账户后再生成报告');
     }
     if (usedBackend) {
       try {
-        if (lizhihuiMode && (!state.entryContext.phone || !state.entryContext.externalOrderId)) {
-          throw new Error('荔智惠入口缺少手机号或订单号，请从荔智惠权益广场重新进入。');
-        }
-        const lizhihuiPayload = {
-          request_id: state.entryContext.requestId || `lhh_web_${Date.now()}`,
-          phone: state.entryContext.phone,
-          external_order_id: state.entryContext.externalOrderId,
-          report_type: reportType,
-          questionnaire_data: questionnaireData,
-          consume_status: state.entryContext.consumeStatus || 'success',
-        };
-        const response = await fetch(apiUrl(lizhihuiMode ? '/api/v1/lizhihui/reports/generate' : '/api/v1/reports'), {
+        const response = await fetch(apiUrl('/api/v1/reports'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {}),
           },
-          body: JSON.stringify(lizhihuiMode ? lizhihuiPayload : {
+          body: JSON.stringify({
             reportType,
             questionnaireData,
             model: CONFIG.MODEL,

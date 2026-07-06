@@ -37,6 +37,7 @@ async function main() {
   await seedBaseData();
 
   if (process.env.SKIP_LISTEN !== '1') {
+    await resumePendingLizhihuiTasks();
     http.createServer(route).listen(PORT, HOST, () => {
       console.log(`GPN backend listening on http://${HOST}:${PORT}`);
     });
@@ -77,13 +78,13 @@ async function route(req, res) {
     if (routeKey === 'GET /api/v1/subscriptions/current') return getCurrentSubscription(req, res);
     if (routeKey === 'POST /api/v1/redemptions/redeem') return redeemCode(req, res, await readJson(req));
 
-    if (routeKey === 'POST /api/v1/lizhihui/entitlements/grant') return lizhihuiGrantEntitlement(req, res, await readJson(req));
-    if (routeKey === 'POST /api/v1/lizhihui/subscriptions/activate') return lizhihuiActivateSubscription(req, res, await readJson(req));
-    if (routeKey === 'POST /api/v1/lizhihui/subscriptions/renew') return lizhihuiRenewSubscription(req, res, await readJson(req));
-    if (routeKey === 'POST /api/v1/lizhihui/subscriptions/cancel') return lizhihuiCancelSubscription(req, res, await readJson(req));
-    if (routeKey === 'POST /api/v1/lizhihui/subscriptions/status') return lizhihuiSyncSubscriptionStatus(req, res, await readJson(req));
-    if (routeKey === 'POST /api/v1/lizhihui/reports/generate') return lizhihuiGenerateReport(req, res, await readJson(req));
-    if (routeKey === 'GET /api/v1/lizhihui/reports/by-order') return lizhihuiGetReportByOrder(req, res, url);
+    if (routeKey === 'POST /api/v1/lizhihui/report-tasks') return lizhihuiCreateReportTask(req, res, await readJson(req));
+    if (routeKey === 'GET /api/v1/lizhihui/report-tasks') return lizhihuiGetReportTask(req, res, url);
+    if (routeKey === 'POST /api/v1/lizhihui/reports/generate') return lizhihuiCreateReportTask(req, res, await readJson(req));
+    if (routeKey === 'GET /api/v1/lizhihui/reports/by-order') return lizhihuiGetReportTask(req, res, url);
+    if (url.pathname.startsWith('/api/v1/lizhihui/entitlements/') || url.pathname.startsWith('/api/v1/lizhihui/subscriptions/')) {
+      return deprecatedLizhihuiEntitlementFlow(res);
+    }
 
     if (routeKey === 'POST /api/v1/admin/redemption-batches') return adminCreateRedemptionBatch(req, res, await readJson(req));
 
@@ -543,93 +544,173 @@ async function lizhihuiSyncSubscriptionStatus(req, res, body) {
   return sendJson(res, 200, { success: true });
 }
 
-async function lizhihuiGenerateReport(req, res, body) {
+function deprecatedLizhihuiEntitlementFlow(res) {
+  return sendJson(res, 410, {
+    success: false,
+    code: 'LIZHIHUI_ENTITLEMENT_SYNC_DEPRECATED',
+    error: '荔智惠新流程由荔智惠侧完成权益校验、购买和扣除，我方不再接收权益券或会员同步。',
+  });
+}
+
+async function lizhihuiCreateReportTask(req, res, body) {
   verifyPartnerSignature(req, body);
   const payload = normalizeLizhihuiReportPayload(body);
-  if (!payload.phone || !payload.externalOrderId) throw httpError(400, 'phone and external_order_id are required');
+  if (!payload.phone || !payload.taskId) throw httpError(400, 'phone and task_id are required');
   if (!payload.reportType || !payload.answers) throw httpError(400, 'report_type and questionnaire_data are required');
   if (payload.consumeStatus && !['success', 'paid', 'completed', 'SUCCESS', 'CONSUMED'].includes(payload.consumeStatus)) {
     throw httpError(409, 'Lizhihui entitlement consumption is not confirmed');
   }
   await ensureReportType(payload.reportType);
 
-  const existing = await getOne('SELECT report_id FROM lizhihui_report_orders WHERE external_order_id = ? LIMIT 1', [payload.externalOrderId]);
-  if (existing?.report_id) {
-    const report = await getReportById(existing.report_id);
-    return sendJson(res, 200, { success: true, idempotent: true, report });
+  const existing = await getOne('SELECT * FROM lizhihui_report_orders WHERE external_order_id = ? LIMIT 1', [payload.taskId]);
+  if (existing) {
+    return sendJson(res, 200, {
+      success: true,
+      idempotent: true,
+      taskId: existing.external_order_id,
+      phone: existing.phone,
+      reportType: existing.report_type,
+      status: normalizeTaskStatus(existing.status),
+      jobId: existing.report_job_id || null,
+      reportId: existing.report_id || null,
+    });
   }
 
   const jobId = id('job');
   const submissionId = id('qsub');
-  const reportId = id('report');
   const user = await getOrCreateLizhihuiUser(payload.phone);
 
-  await execute(
-    'INSERT INTO questionnaire_submissions (id, user_id, report_type, version, answers_json, status) VALUES (?, ?, ?, ?, ?, ?)',
-    [submissionId, user.id, payload.reportType, payload.questionnaireVersion || 'v1', JSON.stringify(payload.answers), 'submitted']
+  await transaction(async conn => {
+    await recordExternalEvent(conn, 'lizhihui', 'report_task_create', payload.requestId, payload.taskId, body);
+    await conn.execute(
+      'INSERT INTO questionnaire_submissions (id, user_id, report_type, version, answers_json, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [submissionId, user.id, payload.reportType, payload.questionnaireVersion || 'v1', JSON.stringify(payload.answers), 'submitted']
+    );
+    await conn.execute(
+      'INSERT INTO report_jobs (id, user_id, report_type, questionnaire_submission_id, status, progress, model_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [jobId, user.id, payload.reportType, submissionId, 'pending', 0, DASHSCOPE_MODEL]
+    );
+    await conn.execute(
+      `INSERT INTO lizhihui_report_orders
+       (id, external_order_id, request_id, phone, user_id, report_job_id, report_id, report_type, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id('lhhr'), payload.taskId, payload.requestId || null, payload.phone, user.id, jobId, null, payload.reportType, 'pending']
+    );
+    await audit(conn, user.id, 'lizhihui.report.accepted', { jobId, reportType: payload.reportType, taskId: payload.taskId });
+  });
+
+  queueLizhihuiReportTask(jobId);
+  return sendJson(res, 202, {
+    success: true,
+    taskId: payload.taskId,
+    phone: payload.phone,
+    reportType: payload.reportType,
+    status: 'accepted',
+    jobId,
+  });
+}
+
+async function lizhihuiGetReportTask(req, res, url) {
+  const payload = {
+    taskId: clean(url.searchParams.get('task_id') || url.searchParams.get('taskId') || url.searchParams.get('lizhihui_task_id') || url.searchParams.get('external_task_id') || url.searchParams.get('external_order_id') || url.searchParams.get('externalOrderId') || url.searchParams.get('order_id')),
+    phone: normalizePhone(url.searchParams.get('phone') || ''),
+  };
+  verifyPartnerSignature(req, payload);
+  if (!payload.taskId) throw httpError(400, 'task_id is required');
+  const order = await getOne(
+    'SELECT * FROM lizhihui_report_orders WHERE external_order_id = ? LIMIT 1',
+    [payload.taskId]
   );
-  await execute(
-    'INSERT INTO report_jobs (id, user_id, report_type, questionnaire_submission_id, status, progress, model_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [jobId, user.id, payload.reportType, submissionId, 'processing', 10, DASHSCOPE_MODEL]
-  );
+  if (!order) throw httpError(404, 'Report task not found');
+  if (payload.phone && normalizePhone(order.phone) !== payload.phone) throw httpError(403, 'Phone does not match order');
+  const job = order.report_job_id ? await getOne('SELECT * FROM report_jobs WHERE id = ? LIMIT 1', [order.report_job_id]) : null;
+  const report = order.report_id ? await getReportById(order.report_id) : null;
+  return sendJson(res, 200, {
+    success: true,
+    task: {
+      taskId: order.external_order_id,
+      requestId: order.request_id,
+      phone: order.phone,
+      reportType: order.report_type,
+      status: normalizeTaskStatus(job?.status || order.status),
+      progress: job?.progress || 0,
+      errorMessage: job?.error_message || null,
+      createdAt: order.created_at,
+      updatedAt: order.updated_at,
+    },
+    report,
+  });
+}
+
+function queueLizhihuiReportTask(jobId) {
+  setImmediate(() => {
+    processLizhihuiReportTask(jobId).catch(error => {
+      console.error('Lizhihui report task failed:', error);
+    });
+  });
+}
+
+async function processLizhihuiReportTask(jobId) {
+  const job = await getOne('SELECT * FROM report_jobs WHERE id = ? LIMIT 1', [jobId]);
+  if (!job || !['pending', 'processing'].includes(job.status)) return;
+  const order = await getOne('SELECT * FROM lizhihui_report_orders WHERE report_job_id = ? LIMIT 1', [jobId]);
+  const submission = await getOne('SELECT * FROM questionnaire_submissions WHERE id = ? LIMIT 1', [job.questionnaire_submission_id]);
+  if (!order || !submission) {
+    await execute('UPDATE report_jobs SET status = ?, error_message = ?, completed_at = NOW() WHERE id = ?', ['failed', 'Missing Lizhihui task or questionnaire submission', jobId]);
+    return;
+  }
+
+  await execute('UPDATE report_jobs SET status = ?, progress = ? WHERE id = ?', ['processing', 15, jobId]);
+  await execute('UPDATE lizhihui_report_orders SET status = ?, updated_at = NOW() WHERE report_job_id = ?', ['processing', jobId]);
 
   try {
-    const generated = await generateStructuredReport(payload.reportType, payload.answers);
-    const title = getReportTitle(payload.reportType);
+    const answers = parseJson(submission.answers_json) || {};
+    const generated = await generateStructuredReport(job.report_type, answers);
+    const title = getReportTitle(job.report_type);
+    const reportId = id('report');
+
     await transaction(async conn => {
-      await recordExternalEvent(conn, 'lizhihui', 'report_generate', payload.requestId, payload.externalOrderId, body);
       await conn.execute(
         'INSERT INTO reports (id, user_id, report_type, questionnaire_submission_id, report_job_id, title, summary, full_content_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [reportId, user.id, payload.reportType, submissionId, jobId, title, generated.summary || generated.reportSummary || '', JSON.stringify(generated), 'completed']
+        [reportId, job.user_id, job.report_type, job.questionnaire_submission_id, jobId, title, generated.summary || generated.reportSummary || '', JSON.stringify(generated), 'completed']
       );
       await conn.execute(
         'INSERT INTO report_chart_data (id, report_id, chart_key, chart_type, data_json) VALUES (?, ?, ?, ?, ?)',
         [id('chart'), reportId, 'main', 'json', JSON.stringify(generated.chartData || generated.scoringDimensions || {})]
       );
       await conn.execute(
-        'INSERT INTO lizhihui_report_orders (id, external_order_id, request_id, phone, user_id, report_id, report_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [id('lhhr'), payload.externalOrderId, payload.requestId || null, payload.phone, user.id, reportId, payload.reportType, 'completed']
-      );
-      await conn.execute(
         'UPDATE report_jobs SET status = ?, progress = ?, report_id = ?, completed_at = NOW() WHERE id = ?',
         ['completed', 100, reportId, jobId]
       );
-      await audit(conn, user.id, 'lizhihui.report.completed', { reportId, reportType: payload.reportType, externalOrderId: payload.externalOrderId });
+      await conn.execute(
+        'UPDATE lizhihui_report_orders SET status = ?, report_id = ?, updated_at = NOW() WHERE report_job_id = ?',
+        ['completed', reportId, jobId]
+      );
+      await audit(conn, job.user_id, 'lizhihui.report.completed', { reportId, reportType: job.report_type, taskId: order.external_order_id });
     });
-    return sendJson(res, 201, { success: true, jobId, report: await getReportById(reportId) });
   } catch (error) {
     await execute('UPDATE report_jobs SET status = ?, error_message = ?, completed_at = NOW() WHERE id = ?', ['failed', error.message, jobId]);
+    await execute('UPDATE lizhihui_report_orders SET status = ?, updated_at = NOW() WHERE report_job_id = ?', ['failed', jobId]);
     throw error;
   }
 }
 
-async function lizhihuiGetReportByOrder(req, res, url) {
-  const payload = {
-    external_order_id: clean(url.searchParams.get('external_order_id') || url.searchParams.get('externalOrderId') || url.searchParams.get('order_id')),
-    phone: normalizePhone(url.searchParams.get('phone') || ''),
-  };
-  verifyPartnerSignature(req, payload);
-  if (!payload.external_order_id) throw httpError(400, 'external_order_id is required');
-  const order = await getOne(
-    'SELECT * FROM lizhihui_report_orders WHERE external_order_id = ? LIMIT 1',
-    [payload.external_order_id]
+function normalizeTaskStatus(status) {
+  if (status === 'completed') return 'completed';
+  if (status === 'failed') return 'failed';
+  if (status === 'processing') return 'processing';
+  return 'pending';
+}
+
+async function resumePendingLizhihuiTasks() {
+  const rows = await query(
+    `SELECT report_job_id AS jobId
+     FROM lizhihui_report_orders
+     WHERE report_job_id IS NOT NULL AND status IN ("pending", "processing")
+     ORDER BY created_at ASC
+     LIMIT 20`
   );
-  if (!order) throw httpError(404, 'Report order not found');
-  if (payload.phone && normalizePhone(order.phone) !== payload.phone) throw httpError(403, 'Phone does not match order');
-  const report = order.report_id ? await getReportById(order.report_id) : null;
-  return sendJson(res, 200, {
-    success: true,
-    order: {
-      externalOrderId: order.external_order_id,
-      requestId: order.request_id,
-      phone: order.phone,
-      reportType: order.report_type,
-      status: order.status,
-      createdAt: order.created_at,
-      updatedAt: order.updated_at,
-    },
-    report,
-  });
+  rows.forEach(row => queueLizhihuiReportTask(row.jobId));
 }
 
 async function adminCreateRedemptionBatch(req, res, body) {
@@ -1384,6 +1465,7 @@ async function initSchema() {
       request_id VARCHAR(128),
       phone VARCHAR(32) NOT NULL,
       user_id VARCHAR(64) NOT NULL,
+      report_job_id VARCHAR(64),
       report_id VARCHAR(64),
       report_type VARCHAR(64) NOT NULL,
       status VARCHAR(32) NOT NULL DEFAULT 'processing',
@@ -1391,6 +1473,7 @@ async function initSchema() {
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_lhh_orders_phone (phone),
       INDEX idx_lhh_orders_user (user_id),
+      INDEX idx_lhh_orders_job (report_job_id),
       INDEX idx_lhh_orders_report (report_id)
     )`,
     `CREATE TABLE IF NOT EXISTS audit_logs (
@@ -1415,6 +1498,8 @@ async function runLightMigrations() {
     'ALTER TABLE user_verification_codes MODIFY phone VARCHAR(32) NULL',
     'ALTER TABLE user_verification_codes ADD COLUMN email VARCHAR(255) NULL AFTER phone',
     'ALTER TABLE user_verification_codes ADD INDEX idx_vcode_email_purpose (email, purpose, created_at)',
+    'ALTER TABLE lizhihui_report_orders ADD COLUMN report_job_id VARCHAR(64) NULL AFTER user_id',
+    'ALTER TABLE lizhihui_report_orders ADD INDEX idx_lhh_orders_job (report_job_id)',
   ];
   for (const statement of migrations) {
     try {
@@ -1481,7 +1566,7 @@ function normalizeLizhihuiReportPayload(body) {
   return {
     requestId: clean(body.request_id || body.requestId || body.event_id),
     phone: normalizePhone(body.phone || body.user_phone || body.userMobile),
-    externalOrderId: clean(body.external_order_id || body.externalOrderId || body.order_id || body.partnerOrderId),
+    taskId: clean(body.task_id || body.taskId || body.lizhihui_task_id || body.lizhihuiTaskId || body.external_task_id || body.externalTaskId || body.external_order_id || body.externalOrderId || body.order_id || body.partnerOrderId),
     reportType: clean(body.report_type || body.reportType),
     questionnaireVersion: clean(body.questionnaire_version || body.questionnaireVersion || 'v1'),
     answers: body.questionnaire_data || body.questionnaireData || body.answers,
