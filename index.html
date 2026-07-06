@@ -522,8 +522,8 @@
     <div class="container">
       <div class="section-header">
         <div class="section-eyebrow">完整产品流程</div>
-        <h2 class="section-title">从问卷填写到<em>使用咨询服务</em></h2>
-        <p class="section-desc">七个步骤，完整闭环。报告生成后自动发放代金券，无缝衔接后续专业咨询服务。</p>
+        <h2 class="section-title">从问卷填写到<em>获取专业报告</em></h2>
+        <p class="section-desc">五个步骤，完整闭环。系统会基于问卷答案生成结构化专业报告，并保存到您的账户中。</p>
       </div>
       <div class="process-steps">
         <div class="process-step">
@@ -551,16 +551,6 @@
           <div class="process-step-label">存入账户</div>
           <div class="process-step-sub">历史报告<br/>永久保存</div>
         </div>
-        <div class="process-step highlight">
-          <div class="process-step-num">🎫</div>
-          <div class="process-step-label">发放代金券</div>
-          <div class="process-step-sub">完成即发<br/>自动到账</div>
-        </div>
-        <div class="process-step highlight">
-          <div class="process-step-num">🚀</div>
-          <div class="process-step-label">跳转荔智惠</div>
-          <div class="process-step-sub">小程序<br/>消费咨询</div>
-        </div>
       </div>
     </div>
   </section>
@@ -571,7 +561,7 @@
       <div class="section-header">
         <div class="section-eyebrow">配套专业服务</div>
         <h2 class="section-title">报告之后，<em>深度咨询</em>随时可用</h2>
-        <p class="section-desc">完成报告后将获得代金券，可前往荔智惠小程序使用，对接顶级教育顾问。</p>
+        <p class="section-desc">报告生成后，用户可根据报告结论继续预约升学策略解读与专业咨询服务。</p>
       </div>
       <div class="services-grid">
         <!-- Featured -->
@@ -591,9 +581,8 @@
             <span class="service-price-unit">/ 45分钟</span>
           </div>
           <div class="service-voucher-note">
-            ✓ 完成任意报告后，代金券可直接用于本服务
+            ✓ 适合报告生成后的升学策略解读与路径校准
           </div>
-          <button class="btn btn-gold w-full" onclick="UI.goToMiniProgram()">前往荔智惠小程序使用 →</button>
         </div>
 
         <!-- Master -->
@@ -608,7 +597,6 @@
           <div class="service-price mt-auto">
             <span class="service-price-amount" style="font-size:24px">面议</span>
           </div>
-          <button class="btn btn-primary btn-sm w-full" onclick="UI.goToMiniProgram()">前往荔智惠了解详情</button>
         </div>
 
         <!-- Undergrad -->
@@ -623,7 +611,6 @@
           <div class="service-price mt-auto">
             <span class="service-price-amount" style="font-size:24px">面议</span>
           </div>
-          <button class="btn btn-primary btn-sm w-full" onclick="UI.goToMiniProgram()">前往荔智惠了解详情</button>
         </div>
       </div>
     </div>
@@ -680,7 +667,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <div class="footer-copyright">© 2025 Global Pathway Navigator · 全球升学与人生规划智能决策平台 · 荔智惠教育科技</div>
+        <div class="footer-copyright">© 2025 Global Pathway Navigator · 全球升学与人生规划智能决策平台</div>
         <div class="footer-badges">
           <span class="footer-badge">SSL 安全</span>
           <span class="footer-badge">数据加密</span>
@@ -772,7 +759,7 @@
           <img class="report-brand-logo" src="assets/axis-quadrant-logo.png" alt="子午象限" />
           <div class="report-actions">
             <button class="btn btn-outline-white btn-sm" onclick="UI.showPage('account', {section:'reports'})">查看历史报告</button>
-            <button class="btn btn-gold btn-sm" onclick="UI.showPage('account', {section:'vouchers'})">查看我的代金券 🎫</button>
+            <button class="btn btn-gold btn-sm" onclick="UI.showPage('account')">返回我的账户</button>
           </div>
         </div>
       </div>
@@ -781,24 +768,6 @@
       <!-- Dynamically rendered -->
     </div>
 
-    <!-- Voucher after report -->
-    <div id="reportVoucher" class="hidden" style="max-width:1100px;margin:0 auto;padding:0 24px 40px">
-      <div style="font-family:var(--font-serif);font-size:18px;font-weight:600;color:var(--gray-900);margin-bottom:12px">🎉 恭喜！您的代金券已发放</div>
-      <div class="voucher-card">
-        <div class="voucher-amount">
-          <div class="voucher-amount-num"><span class="voucher-amount-unit">¥</span><span id="reportVoucherAmount">100</span></div>
-          <div class="voucher-amount-label">代金券</div>
-        </div>
-        <div class="voucher-divider"></div>
-        <div class="voucher-info">
-          <div class="voucher-title">Global Study Abroad Strategy Session</div>
-          <div class="voucher-desc">可用于全球留学战略咨询 · 45分钟 · ¥780</div>
-          <div class="voucher-code">🎫 <span id="reportVoucherCode"></span></div>
-          <div class="voucher-expiry" id="reportVoucherExpiry"></div>
-        </div>
-        <button class="btn btn-gold" onclick="UI.goToMiniProgram()">前往荔智惠使用 →</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -821,7 +790,7 @@
           <span>📊</span><span>历史报告</span>
         </div>
         <div class="account-nav-item" data-account-section="vouchers" onclick="UI.switchAccountSection('vouchers')">
-          <span>🎫</span><span>代金券中心</span>
+          <span>🎫</span><span>权益中心</span>
         </div>
         <div class="account-nav-item" data-account-section="services" onclick="UI.switchAccountSection('services')">
           <span>🚀</span><span>服务产品</span>
@@ -838,7 +807,7 @@
       <!-- Overview -->
       <div id="accountSection-overview" class="account-section active">
         <div class="account-section-title">账户概览</div>
-        <div class="account-section-desc">查看您的报告、代金券与服务使用情况</div>
+        <div class="account-section-desc">查看您的报告、权益与服务使用情况</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px">
           <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-xl);padding:20px;text-align:center;cursor:pointer" onclick="UI.switchAccountSection('reports')">
             <div style="font-size:36px;font-weight:700;font-family:var(--font-serif);color:var(--navy-500)" id="overviewReportCount">0</div>
@@ -846,7 +815,7 @@
           </div>
           <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-xl);padding:20px;text-align:center;cursor:pointer" onclick="UI.switchAccountSection('vouchers')">
             <div style="font-size:36px;font-weight:700;font-family:var(--font-serif);color:var(--gold-500)" id="overviewVoucherCount">0</div>
-            <div style="font-size:13px;color:var(--gray-400)">可用代金券</div>
+            <div style="font-size:13px;color:var(--gray-400)">可用权益</div>
           </div>
           <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-xl);padding:20px;text-align:center;cursor:pointer" onclick="UI.showPage('services')">
             <div style="font-size:36px;font-weight:700;font-family:var(--font-serif);color:var(--success)">3</div>
@@ -896,7 +865,7 @@
       <!-- Services -->
       <div id="accountSection-services" class="account-section">
         <div class="account-section-title">服务产品</div>
-        <div class="account-section-desc">以下服务均可在荔智惠小程序中购买与预约</div>
+        <div class="account-section-desc">以下服务可在完成报告后继续咨询了解</div>
         <div style="display:flex;flex-direction:column;gap:16px" id="accountServicesCards">
         </div>
       </div>
@@ -924,7 +893,7 @@
       <div class="container" style="text-align:center">
         <div class="section-eyebrow" style="color:var(--gold-300);background:rgba(184,137,30,0.1);border-color:rgba(184,137,30,0.2);margin:0 auto 16px;width:fit-content">专业服务产品</div>
         <h1 style="font-family:var(--font-serif);font-size:36px;font-weight:600;color:var(--white);margin-bottom:12px">配套教育顾问服务</h1>
-        <p style="font-size:15px;color:rgba(255,255,255,0.5)">完成报告后，携代金券前往荔智惠小程序解锁专业咨询服务</p>
+        <p style="font-size:15px;color:rgba(255,255,255,0.5)">完成报告后，可继续获取升学策略解读与专业咨询服务</p>
       </div>
     </div>
     <div class="container" style="padding:60px 24px">
@@ -972,7 +941,7 @@
           <label class="form-label">邮箱验证码 <span>*</span></label>
           <div style="display:flex;gap:8px">
             <input type="text" id="loginCode" class="form-input" placeholder="6 位验证码" inputmode="numeric" style="flex:1" oninput="UI.clearLoginCodeNotice()" />
-            <button type="button" class="btn btn-outline" onclick="UI.sendLoginCode()">发送验证码</button>
+            <button type="button" id="loginCodeButton" class="btn btn-outline" onclick="UI.sendLoginCode()">发送验证码</button>
           </div>
           <div id="loginFormNotice" style="display:none;margin-top:8px;font-size:12px;color:var(--error);line-height:1.5"></div>
         </div>
@@ -1009,7 +978,7 @@
           <label class="form-label">邮箱验证码 <span>*</span></label>
           <div style="display:flex;gap:8px">
             <input type="text" id="regCode" class="form-input" placeholder="6 位验证码" inputmode="numeric" style="flex:1" oninput="UI.clearRegisterCodeNotice()" />
-            <button type="button" class="btn btn-outline" onclick="UI.sendRegisterCode()">发送验证码</button>
+            <button type="button" id="registerCodeButton" class="btn btn-outline" onclick="UI.sendRegisterCode()">发送验证码</button>
           </div>
           <div id="registerFormNotice" style="display:none;margin-top:8px;font-size:12px;color:var(--error);line-height:1.5"></div>
         </div>
@@ -1042,21 +1011,21 @@
           <div style="width:44px;height:44px;background:linear-gradient(135deg,var(--navy-100),var(--navy-200));border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🌐</div>
           <div>
             <div style="font-size:14px;font-weight:600;color:var(--gray-800);margin-bottom:2px">全球留学竞争力评估</div>
-            <div style="font-size:12px;color:var(--gray-500)">评估申请竞争力，匹配最优院校 · 完成后获 ¥100 代金券</div>
+            <div style="font-size:12px;color:var(--gray-500)">评估申请竞争力，匹配最优院校</div>
           </div>
         </button>
         <button onclick="UI.hideModal('modalSelectReport');startReport('family')" style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:var(--white);border:1.5px solid var(--gray-100);border-radius:var(--radius-xl);cursor:pointer;text-align:left;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--gold-400)'" onmouseout="this.style.borderColor='var(--gray-100)'">
           <div style="width:44px;height:44px;background:linear-gradient(135deg,var(--gold-100),var(--gold-200));border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🏛️</div>
           <div>
             <div style="font-size:14px;font-weight:600;color:var(--gray-800);margin-bottom:2px">NextGen 家族教育战略报告</div>
-            <div style="font-size:12px;color:var(--gray-500)">家族财富视角下的教育资产配置 · 完成后获 ¥150 代金券</div>
+            <div style="font-size:12px;color:var(--gray-500)">家族财富视角下的教育资产配置</div>
           </div>
         </button>
         <button onclick="UI.hideModal('modalSelectReport');startReport('career')" style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:var(--white);border:1.5px solid var(--gray-100);border-radius:var(--radius-xl);cursor:pointer;text-align:left;transition:border-color 0.2s" onmouseover="this.style.borderColor='#16a34a'" onmouseout="this.style.borderColor='var(--gray-100)'">
           <div style="width:44px;height:44px;background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚀</div>
           <div>
             <div style="font-size:14px;font-weight:600;color:var(--gray-800);margin-bottom:2px">人生生涯全规划报告</div>
-            <div style="font-size:12px;color:var(--gray-500)">全球视野下的人生轨迹模拟 · 完成后获 ¥120 代金券</div>
+            <div style="font-size:12px;color:var(--gray-500)">全球视野下的人生轨迹模拟</div>
           </div>
         </button>
       </div>
@@ -1075,7 +1044,7 @@
       <div style="padding:16px 18px;background:var(--navy-50);border:1px solid var(--navy-100);border-radius:var(--radius-xl);margin-bottom:18px">
         <div style="font-size:15px;font-weight:700;color:var(--gray-800);margin-bottom:6px">本次报告还没有可用权益</div>
         <div id="entitlementRequiredMessage" style="font-size:13px;color:var(--gray-500);line-height:1.7">
-          当前账户没有可用报告权益或有效会员。你可以前往荔智惠购买权益，或输入兑换码兑换一张权益券后继续生成报告。
+          当前账户没有可用报告权益或有效会员。你可以输入兑换码兑换报告权益后继续生成报告。
         </div>
       </div>
       <div class="form-group">
@@ -1084,36 +1053,6 @@
           <input id="entitlementRedeemCode" class="form-input" style="flex:1" placeholder="输入兑换码，例如 RPT-XXXX 或 VIP-XXXX" />
           <button class="btn btn-primary" type="button" onclick="UI.redeemCodeAndRetryReport()">兑换成功后继续生成</button>
         </div>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:20px">
-        <button class="btn btn-gold" style="flex:1" onclick="UI.goBuyEntitlement()">前往荔智惠购买权益</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Mini Program Modal -->
-<div id="modalMiniProgram" class="modal-overlay" onclick="handleModalOverlayClick(event,'modalMiniProgram')">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">前往荔智惠小程序</div>
-      <div class="modal-close" onclick="UI.hideModal('modalMiniProgram')">✕</div>
-    </div>
-    <div class="modal-body" style="text-align:center">
-      <div style="font-size:60px;margin-bottom:16px">📱</div>
-      <div style="font-size:16px;font-weight:600;color:var(--gray-800);margin-bottom:8px">请使用微信扫码进入荔智惠小程序</div>
-      <div style="font-size:13px;color:var(--gray-400);line-height:1.6;margin-bottom:24px">
-        在荔智惠小程序中，您可以：<br/>
-        · 使用报告代金券预约咨询<br/>
-        · 对接专业留学顾问导师<br/>
-        · 查看更多教育服务产品
-      </div>
-      <div style="width:160px;height:160px;background:var(--gray-100);border-radius:var(--radius-xl);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:40px;border:2px dashed var(--gray-200)">
-        🔳
-      </div>
-      <div style="font-size:12px;color:var(--gray-400)">荔智惠小程序二维码</div>
-      <div style="margin-top:20px;padding:12px;background:var(--gold-100);border-radius:var(--radius-lg);font-size:13px;color:var(--gold-600)">
-        💡 请在预约时选择可用代金券，系统会自动为您抵扣对应金额
       </div>
     </div>
   </div>
@@ -1215,7 +1154,7 @@
     const faqs = [
       { q: '报告是 AI 生成的，可信度高吗？', a: '平台的三大 AI 分析引擎均基于真实案例数据库训练，并采用多步骤结构化分析而非简单问答生成。报告结果仅作为参考依据，建议结合专业顾问咨询使用。' },
       { q: '填写问卷需要多长时间？', a: '根据报告类型不同，通常需要 15–25 分钟完成问卷填写。问卷支持自动保存，您可以随时暂停后继续填写。' },
-      { q: '代金券如何使用？', a: '完成报告后系统会自动发放代金券到您的账户。您可在账户的「代金券中心」查看，并前往荔智惠小程序预约对应咨询服务。' },
+      { q: '报告生成后还能做什么？', a: '您可以在账户中查看历史报告，也可以基于报告结论继续预约升学策略解读或专业咨询服务。' },
       { q: '报告会保存多久？', a: '报告将永久保存在您的账户中，您可以随时在「历史报告」页面查看。建议妥善保存报告，以便在咨询时与顾问对照使用。' },
       { q: '报告是实时生成的吗？', a: '正式版本会基于您填写的问卷内容生成个性化分析报告。当前演示页面用于展示完整体验流程，报告内容以示例数据为主。' },
       { q: '数据安全和隐私如何保障？', a: '您填写的所有信息仅用于生成报告，数据存储在本地浏览器中，不会上传至服务器或共享给任何第三方。' },
@@ -1249,11 +1188,7 @@
               ${s.price ? '¥' + s.price : '面议'}
             </div>
             ${s.price ? `<div style="font-size:11px;color:${s.featured ? 'rgba(255,255,255,0.4)' : 'var(--gray-400)'}">${s.unit}</div>` : ''}
-            ${s.voucherApplicable ? `<div style="margin-top:6px;font-size:11px;color:#4ade80;font-weight:600">✓ 可用代金券</div>` : ''}
           </div>
-        </div>
-        <div style="margin-top:16px">
-          <button class="btn ${s.featured ? 'btn-gold' : 'btn-primary'} btn-sm" onclick="UI.goToMiniProgram()">前往荔智惠小程序 →</button>
         </div>
       </div>
     `).join('');
@@ -1279,10 +1214,9 @@
         </div>
         ${s.voucherApplicable ? `
           <div style="padding:12px 16px;background:${s.featured ? 'rgba(22,163,74,0.15)' : 'var(--success-light)'};border-radius:var(--radius-lg);font-size:13px;color:${s.featured ? '#4ade80' : 'var(--success)'};font-weight:500;margin-bottom:20px">
-            ✓ 完成任意 AI 报告后，可使用代金券抵扣本服务费用
+            ✓ 适合报告生成后的升学策略解读与路径校准
           </div>
         ` : ''}
-        <button class="btn ${s.featured ? 'btn-gold' : 'btn-primary'}" onclick="UI.goToMiniProgram()">前往荔智惠小程序了解详情 →</button>
       </div>
     `).join('');
   }

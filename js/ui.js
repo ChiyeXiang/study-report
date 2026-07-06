@@ -4,6 +4,10 @@
  */
 
 const UI = (() => {
+  const codeCountdownTimers = {
+    login: null,
+    register: null,
+  };
 
   // ---- Toast ----
   function toast(msg, type = 'info', duration = 3500) {
@@ -149,8 +153,10 @@ const UI = (() => {
     setFormNotice('registerEmailNotice', '');
     const email = document.getElementById('regEmail').value.trim();
     if (!email) return setFormNotice('registerEmailNotice', '请先填写邮箱地址');
+    if (!isValidEmail(email)) return setFormNotice('registerEmailNotice', '请输入正确的邮箱地址');
     const button = getCodeButton('register');
-    setButtonDisabled(button, true);
+    if (isCodeCountdownActive('register')) return;
+    setCodeButtonLoading(button);
     try {
       const registered = await APP.checkEmailRegistered(email);
       if (registered) {
@@ -158,14 +164,16 @@ const UI = (() => {
         return;
       }
       await sendCode(email, 'register');
+      startCodeCountdown('register');
     } catch (err) {
       if (err?.code === 'EMAIL_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册')) {
         switchRegisteredEmailToLogin(email);
         return;
       }
       showVerificationError('register', err || '验证码发送失败，请稍后重试');
+      restoreCodeButton('register');
     } finally {
-      setButtonDisabled(button, false);
+      if (!isCodeCountdownActive('register')) restoreCodeButton('register');
     }
   }
 
@@ -173,29 +181,26 @@ const UI = (() => {
     setFormNotice('loginFormNotice', '');
     const email = document.getElementById('loginEmail').value.trim();
     if (!email) return showAuthError('login', '请先填写邮箱地址');
+    if (!isValidEmail(email)) return showAuthError('login', '请输入正确的邮箱地址');
     const button = getCodeButton('login');
-    setButtonDisabled(button, true);
+    if (isCodeCountdownActive('login')) return;
+    setCodeButtonLoading(button);
     try {
       await sendCode(email, 'login');
+      startCodeCountdown('login');
     } catch (err) {
       showVerificationError('login', err || '验证码发送失败，请稍后重试');
+      restoreCodeButton('login');
     } finally {
-      setButtonDisabled(button, false);
+      if (!isCodeCountdownActive('login')) restoreCodeButton('login');
     }
   }
 
   async function sendCode(email, purpose) {
-    try {
-      const result = await APP.sendVerificationCode(email, purpose);
-      setFormNotice(purpose === 'register' ? 'registerFormNotice' : 'loginFormNotice', result.mockCode ? `测试验证码：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
-      toast(result.mockCode ? `验证码已生成：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
-    } catch (err) {
-      if (purpose === 'register' && (err?.code === 'EMAIL_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册'))) {
-        switchRegisteredEmailToLogin(email);
-        return;
-      }
-      showVerificationError(purpose, err || '验证码发送失败，请稍后重试');
-    }
+    const result = await APP.sendVerificationCode(email, purpose);
+    setFormNotice(purpose === 'register' ? 'registerFormNotice' : 'loginFormNotice', result.mockCode ? `测试验证码：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
+    toast(result.mockCode ? `验证码已生成：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
+    return result;
   }
 
   function showAuthError(scope, message) {
@@ -235,13 +240,47 @@ const UI = (() => {
   }
 
   function getCodeButton(scope) {
-    const modal = document.getElementById(scope === 'register' ? 'modalRegister' : 'modalLogin');
-    return modal?.querySelector('button.btn-outline[onclick*="Code"]') || null;
+    return document.getElementById(scope === 'register' ? 'registerCodeButton' : 'loginCodeButton');
   }
 
-  function setButtonDisabled(button, disabled) {
+  function setCodeButtonLoading(button) {
     if (!button) return;
-    button.disabled = disabled;
+    button.disabled = true;
+    button.textContent = '发送中...';
+  }
+
+  function restoreCodeButton(scope) {
+    const button = getCodeButton(scope);
+    if (!button) return;
+    button.disabled = false;
+    button.textContent = '发送验证码';
+  }
+
+  function startCodeCountdown(scope, seconds = 60) {
+    const button = getCodeButton(scope);
+    if (!button) return;
+    if (codeCountdownTimers[scope]) clearInterval(codeCountdownTimers[scope]);
+    let remaining = seconds;
+    button.disabled = true;
+    button.textContent = `${remaining}秒后重发`;
+    codeCountdownTimers[scope] = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(codeCountdownTimers[scope]);
+        codeCountdownTimers[scope] = null;
+        restoreCodeButton(scope);
+        return;
+      }
+      button.textContent = `${remaining}秒后重发`;
+    }, 1000);
+  }
+
+  function isCodeCountdownActive(scope) {
+    return Boolean(codeCountdownTimers[scope]);
+  }
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
   }
 
   function clearRegisterEmailNotice() {
@@ -428,11 +467,14 @@ const UI = (() => {
           <span>${opt}</span>
         `;
         optEl.addEventListener('click', () => {
+          const input = optEl.querySelector('input');
+          if (input) input.checked = true;
           optionsEl.querySelectorAll('.q-option').forEach(o => o.classList.remove('selected'));
           optEl.classList.add('selected');
           saveFieldData(field.id, opt);
           // 触发条件显现重新评估
           evalConditionals(field.id, opt);
+          updateQuestionnaireNavButton();
         });
         optionsEl.appendChild(optEl);
       });
@@ -519,13 +561,17 @@ const UI = (() => {
   function conditionMatches(condition, values) {
     if (!condition || !condition.field) return false;
     const actual = values[condition.field];
-    if (condition.value !== undefined) return actual === condition.value;
+    if (condition.value !== undefined) return normalizeConditionValue(actual) === normalizeConditionValue(condition.value);
     if (condition.includes !== undefined) {
       return Array.isArray(actual)
-        ? actual.includes(condition.includes)
-        : actual === condition.includes;
+        ? actual.map(normalizeConditionValue).includes(normalizeConditionValue(condition.includes))
+        : normalizeConditionValue(actual) === normalizeConditionValue(condition.includes);
     }
     return Boolean(actual);
+  }
+
+  function normalizeConditionValue(value) {
+    return String(value ?? '').replace(/\s+/g, ' ').trim();
   }
 
   function getAllQuestionnaireValues() {
@@ -572,6 +618,14 @@ const UI = (() => {
   // 根据已保存数据初始化当前步骤的条件显现状态
   function initConditionals() {
     evalConditionals();
+    updateQuestionnaireNavButton();
+  }
+
+  function updateQuestionnaireNavButton() {
+    const button = document.getElementById('qBtnNext');
+    if (!button) return;
+    const hasNextVisibleStep = findVisibleStep(qState.currentStep + 1, 1) >= 0;
+    button.textContent = hasNextVisibleStep ? '下一步 →' : '生成报告 →';
   }
 
   function saveFieldData(fieldId, value) {
@@ -641,7 +695,7 @@ const UI = (() => {
       try {
         const hasAccess = APP.isLizhihuiMode() ? true : await APP.hasReportAccess();
         if (!hasAccess) {
-          openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员。你可以前往荔智惠购买权益，或输入兑换码兑换一张权益券后继续生成报告。');
+          openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员。你可以输入兑换码兑换报告权益后继续生成报告。');
           return;
         }
       } catch (err) {
@@ -688,7 +742,7 @@ const UI = (() => {
     try {
       const hasAccess = APP.isLizhihuiMode() ? true : await APP.hasReportAccess();
       if (!hasAccess) {
-        openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员，请先兑换权益或前往荔智惠购买。');
+        openEntitlementRequiredModal('当前账户没有可用报告权益或有效会员，请先兑换报告权益。');
         return;
       }
     } catch (err) {
@@ -755,7 +809,7 @@ const UI = (() => {
       await delay(600);
 
       // Show completion notification
-      toast(voucher ? `🎉 报告生成完成！已向您账户发放 ¥${voucher.amount} 代金券` : '🎉 报告生成完成！', 'success', 5000);
+      toast('🎉 报告生成完成！', 'success', 5000);
 
       // Navigate to report page
       showPage('report', { reportId: report.id });
@@ -1300,9 +1354,6 @@ const UI = (() => {
       html.push(`
         <div class="report-section" style="background:linear-gradient(135deg,var(--navy-900),var(--navy-800));border-radius:var(--radius-2xl)">
           <div style="font-size:14px;color:rgba(255,255,255,0.75);line-height:1.85">${data.conclusion.replace(/\n/g, '<br>')}</div>
-          <div style="margin-top:16px;padding:12px 16px;background:rgba(255,255,255,0.08);border-radius:var(--radius-lg);font-size:13px;color:var(--gold-300)">
-            💡 持有本报告代金券，可在荔智惠小程序预约专属战略咨询，抵扣咨询费用
-          </div>
         </div>
       `);
     }
@@ -1489,14 +1540,11 @@ const UI = (() => {
       `);
     }
 
-    // 模块7：结语与代金券引导
+    // 模块7：结语
     if (data.conclusion) {
       html.push(`
         <div class="report-section" style="background:linear-gradient(135deg,var(--navy-900),var(--navy-800));border-radius:var(--radius-2xl)">
           <div style="font-size:14px;color:rgba(255,255,255,0.75);line-height:1.85">${data.conclusion.replace(/\n/g, '<br>')}</div>
-          <div style="margin-top:16px;padding:12px 16px;background:rgba(255,255,255,0.08);border-radius:var(--radius-lg);font-size:13px;color:var(--gold-300)">
-            💡 持有本报告代金券，可在荔智惠小程序预约专属战略咨询，抵扣咨询费用
-          </div>
         </div>
       `);
     }
@@ -2140,13 +2188,13 @@ const UI = (() => {
     }
     const vouchers = APP.state.vouchers;
     if (!vouchers.length) {
-      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)">暂无可用权益，请输入兑换码或通过荔智惠购买权益。</div>';
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)">暂无可用权益，请输入兑换码兑换报告权益。</div>';
       return;
     }
     container.innerHTML = vouchers.map(v => {
       const exp = v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('zh-CN') : '长期有效';
       const isExpired = v.expiresAt ? new Date(v.expiresAt) < new Date() : false;
-      const sourceLabel = v.source === 'lizhihui' ? '荔智惠权益' : v.source === 'redemption_code' ? '兑换码权益' : '平台权益';
+      const sourceLabel = v.source === 'redemption_code' ? '兑换码权益' : '平台权益';
       const sourceMeta = v.partnerOrderId ? ` · 订单 ${v.partnerOrderId}` : '';
       return `
         <div class="voucher-card" style="margin-bottom:16px;${isExpired ? 'opacity:0.5' : ''}">
@@ -2207,7 +2255,7 @@ const UI = (() => {
       ? `会员有效期至 ${subEnd ? new Date(subEnd).toLocaleDateString('zh-CN') : '长期'}，有效期内可生成报告。`
       : totalRemaining > 0
         ? `你当前有 ${totalRemaining} 次可用报告生成权益，可用于任意一类报告。`
-        : '你可以输入兑换码领取权益，或前往荔智惠购买权益后再生成报告。';
+        : '你可以输入兑换码领取权益后再生成报告。';
   }
 
   async function redeemHomeCode() {
@@ -2281,7 +2329,7 @@ const UI = (() => {
 
   function goBuyEntitlement() {
     hideModal('modalEntitlementRequired');
-    goToMiniProgram();
+    toast('请先使用兑换码兑换报告权益。', 'info');
   }
 
   function viewReport(reportId) {
@@ -2289,13 +2337,7 @@ const UI = (() => {
   }
 
   function goToMiniProgram() {
-    // 荔智惠小程序跳转逻辑
-    toast('正在跳转到荔智惠小程序…', 'info');
-    setTimeout(() => {
-      // 实际小程序跳转会通过微信 JSSDK 或 schema 实现
-      // 这里弹出说明
-      document.getElementById('modalMiniProgram').classList.add('active');
-    }, 800);
+    toast('该入口已调整为平台内完成服务。', 'info');
   }
 
   function claimLizhihuiVoucher(productId) {

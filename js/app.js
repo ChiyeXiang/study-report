@@ -323,27 +323,27 @@ const APP = (() => {
     return report;
   }
 
-  // ---- Lizhihui Voucher Integration Demo ----
+  // ---- Legacy voucher integration demo (not used in current user-facing flow) ----
   const LIZHIHUI_PRODUCTS = [
     {
       id: 'lzh_ai_report_trial',
       name: 'AI 报告免费体验券',
       amount: 100,
       service: 'AI 升学报告体验权益',
-      desc: '用户在荔智惠小程序领取后，可在本平台兑换一次 AI 报告体验权益。',
+      desc: '用户可在本平台兑换一次 AI 报告体验权益。',
     },
     {
       id: 'lzh_strategy_session',
       name: '全球留学战略咨询抵扣券',
       amount: 150,
       service: 'Global Study Abroad Strategy Session｜全球留学战略咨询',
-      desc: '用户完成报告后，可在荔智惠小程序预约咨询时抵扣使用。',
+      desc: '用户完成报告后，可继续预约咨询服务。',
     },
   ];
 
   function claimLizhihuiVoucher(productId = 'lzh_ai_report_trial') {
     if (!state.user) {
-      return { ok: false, msg: '请先登录或注册账户，再模拟领取荔智惠权益券' };
+      return { ok: false, msg: '请先登录或注册账户，再领取报告权益' };
     }
     const product = LIZHIHUI_PRODUCTS.find(p => p.id === productId) || LIZHIHUI_PRODUCTS[0];
     const orderId = 'LZH-' + Date.now();
@@ -361,7 +361,7 @@ const APP = (() => {
       status: 'active',
       service: product.service,
       source: 'lizhihui',
-      sourceName: '荔智惠小程序',
+      sourceName: '平台权益',
       partnerUserId: 'lzh_demo_' + state.user.id,
       partnerProductId: product.id,
       partnerOrderId: orderId,
@@ -369,7 +369,7 @@ const APP = (() => {
     };
     state.vouchers.unshift(voucher);
     saveState();
-    return { ok: true, voucher, msg: '荔智惠权益券已发放到当前账户' };
+    return { ok: true, voucher, msg: '报告权益已发放到当前账户' };
   }
 
   // ---- Report Type Definitions ----
@@ -1847,7 +1847,7 @@ ${fullAnswers}
     "reinforcementText": "350-450字，结合学生的入学时间窗口和当前准备状态，写最优先补强什么；为什么先补这些；哪些投入是高价值的；哪些投入短期内意义不大",
     "topActions": [{"action": "具体行动", "timeline": "建议时间", "expectedImpact": "预期效果"}]
   },
-  "conclusion": "100-150字结语，自然引出后续咨询，但不生硬，提及代金券可用于预约荔智惠专业顾问"
+  "conclusion": "100-150字结语，自然引出后续升学策略解读或专业咨询，但不生硬"
   }
 `;
       },
@@ -1869,7 +1869,7 @@ ${fullAnswers}
 模块4：国家/地区路径判断（含国家路径对比图）
 模块5：家庭资源投入建议（含资源配置建议图）
 模块6：当前最关键的家庭决策问题
-模块7：结语与代金券引导
+模块7：结语与后续建议
 
 核心原则：
 1. 帮家长做判断，而不是帮家长看热闹
@@ -2031,8 +2031,8 @@ ${fullAnswers}
     "nextAction": "100-150字，写：下一阶段最合理的家庭动作是什么"
   },
 
-  // ===== 模块7：结语与代金券引导 =====
-  "conclusion": "100-150字结语。自然引出后续咨询，提及代金券可用于预约荔智惠专业顾问"
+  // ===== 模块7：结语与后续建议 =====
+  "conclusion": "100-150字结语。自然引出后续升学策略解读或专业咨询，但不生硬"
 }
 
 `;
