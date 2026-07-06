@@ -1811,6 +1811,87 @@ ul, ol { list-style: none; }
   font-weight: 600;
   color: var(--gray-900);
 }
+.report-cta-footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-6);
+  background: linear-gradient(135deg, var(--navy-900), var(--navy-800));
+  border: 1px solid rgba(212, 160, 23, 0.22);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-7);
+  margin: var(--space-8) 0 var(--space-4);
+  box-shadow: var(--shadow-md);
+}
+.report-cta-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(212, 160, 23, 0.14);
+  color: var(--gold-300);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-3);
+}
+.report-cta-title {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: var(--space-3);
+  line-height: 1.35;
+}
+.report-cta-desc {
+  color: rgba(255,255,255,0.68);
+  font-size: 14px;
+  line-height: 1.8;
+  max-width: 720px;
+}
+.report-cta-action {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  min-width: 220px;
+}
+.report-cta-wechat {
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: var(--radius-xl);
+}
+.report-cta-label {
+  display: block;
+  color: rgba(255,255,255,0.48);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.report-cta-wechat strong {
+  display: block;
+  color: var(--white);
+  font-size: 20px;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+.report-cta-copy {
+  width: 100%;
+  justify-content: center;
+}
+.report-cta-hint {
+  min-height: 18px;
+  color: rgba(255,255,255,0.58);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.report-cta-hint.success {
+  color: #bbf7d0;
+}
+.report-cta-hint.error {
+  color: #fecaca;
+}
 .report-summary-box {
   background: linear-gradient(135deg, var(--navy-900), var(--navy-800));
   border-radius: var(--radius-xl);
@@ -2376,6 +2457,19 @@ ul, ol { list-style: none; }
   .report-section-header { gap: 10px; margin-bottom: 16px; padding-bottom: 12px; }
   .report-section-icon { width: 34px; height: 34px; font-size: 16px; }
   .report-section-title { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+  .report-cta-footer {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 20px 16px;
+    margin: 22px 0 8px;
+    border-radius: 18px;
+  }
+  .report-cta-title { font-size: 22px; line-height: 1.3; }
+  .report-cta-desc { font-size: 14px; line-height: 1.75; }
+  .report-cta-action { min-width: 0; width: 100%; }
+  .report-cta-wechat { padding: 13px 14px; }
+  .report-cta-wechat strong { font-size: 19px; overflow-wrap: anywhere; }
+  .report-cta-copy { min-height: 46px; }
   .report-summary-box { padding: 16px; border-radius: 14px; margin-bottom: 16px; }
   .report-summary-text { font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
   .chart-canvas-wrap { width: 100%; max-width: min(100%, 360px); overflow: visible; padding: 0 6px; }

@@ -110,32 +110,32 @@ const APP = (() => {
   }
 
   // ---- Auth ----
-  async function sendVerificationCode(phone, purpose) {
+  async function sendVerificationCode(email, purpose) {
     if (!backendEnabled()) {
       return { success: true, mockCode: '123456' };
     }
     return apiRequest('/api/v1/auth/send-code', {
       method: 'POST',
-      body: JSON.stringify({ phone, purpose }),
+      body: JSON.stringify({ email, purpose }),
     });
   }
 
-  async function checkPhoneRegistered(phone) {
+  async function checkEmailRegistered(email) {
     if (!backendEnabled()) return false;
-    const data = await apiRequest('/api/v1/auth/check-phone', {
+    const data = await apiRequest('/api/v1/auth/check-email', {
       method: 'POST',
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ email }),
     });
     return Boolean(data.registered);
   }
 
-  async function register(name, email, password, phone, verificationCode) {
+  async function register(name, email, password, verificationCode) {
     if (backendEnabled()) {
       try {
         const response = await fetch(apiUrl('/api/v1/auth/register'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, password, phone, verificationCode }),
+          body: JSON.stringify({ name, email, password, verificationCode }),
         });
         const result = await response.json();
         if (!response.ok) return { ok: false, msg: result.error || '注册失败，请稍后重试', code: result.code };
@@ -149,12 +149,12 @@ const APP = (() => {
     }
 
     const users = getUsers();
-    if (users.find(u => (email && u.email === email) || u.phone === phone)) {
-      return { ok: false, msg: '该手机号或邮箱已注册，请直接登录' };
+    if (users.find(u => u.email === email)) {
+      return { ok: false, msg: '该邮箱已注册，请直接登录' };
     }
     const user = {
       id: 'u_' + Date.now(),
-      name, email, password, phone,
+      name, email, password,
       createdAt: new Date().toISOString(),
     };
     users.push(user);
@@ -204,7 +204,7 @@ const APP = (() => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(verificationCode
-            ? { phone: login, verificationCode }
+            ? { email: login, verificationCode }
             : { email: login, password }),
         });
         const result = await response.json();
@@ -219,8 +219,8 @@ const APP = (() => {
     }
 
     const users = getUsers();
-    const user = users.find(u => (u.email === login || u.phone === login) && (verificationCode || u.password === password));
-    if (!user) return { ok: false, msg: '邮箱或密码错误，请重试' };
+    const user = users.find(u => u.email === login && (verificationCode || u.password === password));
+    if (!user) return { ok: false, msg: verificationCode ? '该邮箱尚未注册，请先创建账户' : '邮箱或密码错误，请重试' };
     state.user = { ...user };
     delete state.user.password;
     saveState();
@@ -438,505 +438,254 @@ const APP = (() => {
     // 报告一：全球留学竞争力评估（正式重构版，7 模块 42 题）
     // ===========================================================
     competitiveness: [
-      // ---- 模块 A：申请目标与当前学校情况 ----
       {
-        id: 'c_module_a',
-        title: '模块 A：申请目标与当前学校情况',
-        desc: '请填写你当前所处的教育阶段与申请目标，系统将以此建立初始申请档案。',
-        insight: '申请目标与学校背景是评估竞争力基准线的核心起点。',
+        id: 'c_module_0',
+        title: '模块 0：申请身份分流',
+        desc: '请先选择当前最主要的申请目标，系统会进入对应问卷路径。',
+        insight: '申请阶段不同，竞争力评估框架也会不同。',
         fields: [
           {
             id: 'applyGoal',
             label: '你当前最主要的申请目标是？',
             type: 'radio',
             required: true,
-            options: ['高中申请海外本科', '本科申请海外硕士', '暂时还没完全确定，先做评估'],
+            options: ['高中申请海外本科', '本科申请海外硕士', '目前不确定，先做评估'],
           },
           {
-            id: 'schoolName',
-            label: '你目前所在学校名称是？',
-            type: 'text',
-            placeholder: '请填写学校全称，例如：上海外国语大学附属外国语学校',
-          },
-          // 若为"高中申请海外本科"
-          {
-            id: 'schoolTypeHS',
-            label: '你目前所在学校更接近哪一类？',
+            id: 'uncertainStage',
+            label: '如果你目前还不确定，请先选择你当前的学习阶段',
             type: 'radio',
             required: true,
-            showIf: { field: 'applyGoal', value: '高中申请海外本科' },
-            options: ['国内公立高中', '国际学校 / 国际课程学校', '海外高中', '其他'],
-          },
-          // 若为"本科申请海外硕士"
-          {
-            id: 'schoolTypeUG',
-            label: '你目前所在学校更接近哪一类？',
-            type: 'radio',
-            required: true,
-            showIf: { field: 'applyGoal', value: '本科申请海外硕士' },
-            options: ['国内本科院校', '海外本科院校', '中外合作办学本科', '其他'],
-          },
-          // 若为"高中申请海外本科"
-          {
-            id: 'gradeHS',
-            label: '你当前所在阶段是？',
-            type: 'radio',
-            required: true,
-            showIf: { field: 'applyGoal', value: '高中申请海外本科' },
-            options: ['9–10 年级 / 高一高二', '11 年级', '12 年级 / 申请阶段', '已毕业 / Gap 中'],
-          },
-          // 若为"本科申请海外硕士"
-          {
-            id: 'gradeUG',
-            label: '你当前所在阶段是？',
-            type: 'radio',
-            required: true,
-            showIf: { field: 'applyGoal', value: '本科申请海外硕士' },
-            options: ['大一 / 大二', '大三', '大四 / 应届申请', '已毕业 / Gap 中'],
-          },
-          {
-            id: 'enrollTime',
-            label: '你计划申请的入学时间更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: ['1 年内', '1–2 年内', '2 年以上', '还没确定'],
+            showIf: { field: 'applyGoal', value: '目前不确定，先做评估' },
+            options: ['我目前是高中阶段', '我目前是本科阶段', '其他情况'],
           },
         ],
       },
-
-      // ---- 模块 B：学术表现 ----
       {
-        id: 'c_module_b',
-        title: '模块 B：学术表现',
-        desc: '请如实填写当前成绩情况，系统将基于真实数据进行精准竞争力评估。',
-        insight: '学术维度是评估冲刺层级的核心变量，请尽量提供最准确的数据。',
+        id: 'c_a1',
+        title: '模块 A1：基础信息与申请时间',
+        desc: '高中申请海外本科路径。',
+        insight: '当前学校、年级与申请时间会决定规划紧迫度。',
         fields: [
-          {
-            id: 'gpaScore',
-            label: '你目前的 GPA / 平均成绩是多少？',
-            type: 'text',
-            placeholder: '支持 GPA 或百分制均分，例如 3.7/4.0、87/100',
-          },
-          {
-            id: 'rankLevel',
-            label: '你目前的排名情况更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: ['前 10%', '前 30%', '30% 之后', '学校不提供排名 / 不清楚'],
-          },
-          // 若为"高中申请海外本科"
-          {
-            id: 'curriculumHS',
-            label: '你当前的课程体系是？',
-            type: 'radio',
-            required: true,
-            showIf: { field: 'applyGoal', value: '高中申请海外本科' },
-            options: ['国内普通高中课程', 'AP / A-Level / IB 等国际课程', '其他课程体系'],
-          },
-          // 若为"本科申请海外硕士"
-          {
-            id: 'curriculumUG',
-            label: '你当前的课程体系是？',
-            type: 'radio',
-            required: true,
-            showIf: { field: 'applyGoal', value: '本科申请海外硕士' },
-            options: ['国内本科课程体系', '海外本科课程体系', '其他课程体系'],
-          },
-          {
-            id: 'academicState',
-            label: '你目前的学业状态更接近哪一种？',
-            type: 'radio',
-            required: true,
-            options: ['整体稳定，成绩表现较强', '有一定优势，但也有明显短板', '成绩中等，波动较大', '成绩目前不太理想'],
-          },
-          {
-            id: 'strongSubjects',
-            label: '你目前最有把握的学科方向有哪些？（最多选 3）',
-            type: 'checkbox',
-            maxSelect: 3,
-            options: ['数学 / 定量分析', '理工科', '计算机 / 编程', '商科 / 经济', '人文社科', '语言表达 / 写作', '艺术 / 设计', '暂不明确'],
-          },
+          { id: 'schoolName', label: '你目前所在学校名称是？', type: 'text', placeholder: '请填写学校全称', showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] } },
+          { id: 'schoolTypeHS', label: '你目前所在学校更接近哪一类？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['国内公立高中', '国际学校或国际课程学校', '海外高中', '其他'] },
+          { id: 'gradeHS', label: '你当前所在阶段是？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['9–10 年级 / 高一高二', '11 年级', '12 年级 / 申请阶段', '已毕业 / Gap 中'] },
+          { id: 'enrollTime', label: '你计划申请的入学时间更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['1 年内', '1–2 年内', '2 年以上', '还没确定'] },
         ],
       },
-
-      // ---- 模块 C：语言与标化 ----
       {
-        id: 'c_module_c',
-        title: '模块 C：语言与标化',
-        desc: '请填写当前语言及标化成绩情况，系统将评估其与目标院校要求的匹配程度。',
-        insight: '语言与标化是申请的硬性门槛，将直接影响院校层级判断。',
+        id: 'c_a2',
+        title: '模块 A2：学术基础实力',
+        desc: '请填写当前成绩、排名、课程体系和强势学科。',
+        insight: '学术基础是判断冲刺层级的第一基准。',
         fields: [
-          {
-            id: 'hasLangScore',
-            label: '你目前是否已有语言成绩？',
-            type: 'radio',
-            required: true,
-            options: ['有', '没有', '正在准备'],
-          },
-          {
-            id: 'langScore',
-            label: '你的语言成绩是多少？',
-            type: 'text',
-            placeholder: '如托福 105、雅思 7.5、Duolingo 135；若暂无可填"无"',
-          },
-          // 若为"高中申请海外本科"
-          {
-            id: 'hasStdScoreHS',
-            label: '你目前是否已有标化成绩？',
-            type: 'radio',
-            required: true,
-            showIf: { field: 'applyGoal', value: '高中申请海外本科' },
-            options: ['有 SAT / ACT', '暂无，但计划准备', '暂无，且暂未确定是否需要'],
-          },
-          // 若为"本科申请海外硕士"
-          {
-            id: 'hasStdScoreUG',
-            label: '你目前是否已有标化成绩？',
-            type: 'radio',
-            required: true,
-            showIf: { field: 'applyGoal', value: '本科申请海外硕士' },
-            options: ['有 GRE / GMAT', '暂无，但计划准备', '暂无，且暂未确定是否需要'],
-          },
-          {
-            id: 'stdScore',
-            label: '你的标化成绩是多少？',
-            type: 'text',
-            placeholder: '如 SAT 1480、GRE 325、GMAT 710；若暂无可填"无"',
-          },
-          {
-            id: 'testReadiness',
-            label: '你目前在语言或标化准备上更接近哪种状态？',
-            type: 'radio',
-            required: true,
-            options: ['已经比较接近目标', '有一定基础，但还有明显提升空间', '刚开始准备或尚未系统开始'],
-          },
+          { id: 'gpaScore', label: '你目前的 GPA / 平均成绩是多少？', type: 'text', placeholder: '例如 GPA 3.8 / 均分 88 / IB 38 / A-Level AAB / AP 课程均分 A / 5 分', showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] } },
+          { id: 'rankLevel', label: '你的年级或班级排名情况更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['长期前 10%', '稳定前 30%', '中等水平', '偏后但有提升空间', '学校不提供排名 / 不清楚'] },
+          { id: 'curriculumHS', label: '你当前的课程体系是？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['国内普通高中课程', 'AP 体系', 'A-Level 体系', 'IB 体系', '混合课程体系', '海外高中课程体系', '其他 / 不确定'] },
+          { id: 'advancedCourses', label: '你目前已经修读或计划修读多少门有挑战性的高阶课程？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['0 门', '1–2 门', '3–4 门', '5 门及以上', '不适用 / 不确定'] },
+          { id: 'gradeTrend', label: '你的成绩趋势更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['最近一年持续提升', '整体比较稳定', '有一定波动', '最近出现明显下滑', '不确定'] },
+          { id: 'strongSubjects', label: '你目前最有把握的学科或能力方向有哪些？', type: 'checkbox', maxSelect: 3, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['数学 / 定量分析', '计算机 / 编程', '物理 / 工程基础', '生物 / 化学', '商科 / 经济', '人文社科', '写作 / 语言表达', '艺术 / 设计', '暂不明确'] },
+          { id: 'academicSupplement', label: '关于你的学术表现，还有没有需要补充说明的情况？', type: 'textarea', placeholder: '比如成绩波动、某些科目特别强或特别弱、课程难度等。', showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] } },
         ],
       },
-
-      // ---- 模块 D：专业方向与国家偏好 ----
       {
-        id: 'c_module_d',
-        title: '模块 D：专业方向与国家偏好',
-        desc: '专业方向与目标国家是构建申请叙事的核心，请尽量真实表达目前的想法。',
-        insight: '专业匹配度与国家偏好将直接影响院校推荐的方向性与精准度。',
+        id: 'c_a3',
+        title: '模块 A3：语言与标化达标能力',
+        desc: '请填写语言、SAT/ACT 及备考状态。',
+        insight: '语言和标化决定能否跨过目标院校的基础门槛。',
         fields: [
-          {
-            id: 'targetMajors',
-            label: '你当前最感兴趣的专业方向有哪些？（最多选 4）',
-            type: 'checkbox',
-            maxSelect: 4,
-            options: [
-              '金融 / 会计 / 商业分析',
-              '经济 / 数学 / 计量',
-              '计算机 / AI / 数据科学',
-              '工程 / 机械 / 电子 / 材料',
-              '生物 / 医学 / 公共卫生',
-              '心理学 / 教育',
-              '社会科学 / 公共政策 / 国际关系',
-              '传媒 / 新闻 / 人文',
-              '法律',
-              '设计 / 艺术',
-              '暂不确定',
-            ],
-          },
-          {
-            id: 'majorClarity',
-            label: '你目前对专业方向的状态更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: ['已经非常明确', '有 1–2 个重点方向，仍在比较', '目前还比较模糊'],
-          },
-          {
-            id: 'targetCountries',
-            label: '你当前最想申请的国家/地区有哪些？（最多选 4）',
-            type: 'checkbox',
-            maxSelect: 4,
-            options: ['美国', '英国', '香港', '新加坡', '加拿大', '澳大利亚', '欧洲', '其他地区', '暂不确定'],
-          },
-          {
-            id: 'countryReasons',
-            label: '你选择这些国家/地区更主要是因为哪些原因？（最多选 3）',
-            type: 'checkbox',
-            maxSelect: 3,
-            options: [
-              '学校整体实力',
-              '专业资源更强',
-              '就业与职业发展机会',
-              '预算和性价比',
-              '环境与生活方式',
-              '家庭偏好或已有资源',
-              '还没有系统判断，更多是直觉偏好',
-            ],
-          },
-          {
-            id: 'tierExpectation',
-            label: '你当前对学校层级的期待更接近哪种情况？',
-            type: 'radio',
-            required: true,
-            options: [
-              '尽可能冲击更高层级学校',
-              '在较高层级里争取更稳妥结果',
-              '更看重结果稳定和性价比',
-              '希望系统帮我判断更适合的层级',
-            ],
-          },
+          { id: 'hasLangScore', label: '你目前是否已有语言成绩？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['已有托福 / 雅思 / 多邻国成绩', '正在准备，尚未出分', '还没有开始准备', '不确定是否需要'] },
+          { id: 'langScore', label: '你的语言成绩是多少？', type: 'text', placeholder: '例如 TOEFL 105 / IELTS 7.5 / Duolingo 135', showIf: { field: 'hasLangScore', value: '已有托福 / 雅思 / 多邻国成绩' } },
+          { id: 'hasStdScoreHS', label: '你目前是否已有 SAT / ACT 成绩？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['已有 SAT / ACT 成绩', '正在准备', '暂无，但计划准备', '暂无，且暂时不确定是否需要', '目标院校暂不要求'] },
+          { id: 'stdScore', label: '你的 SAT / ACT 成绩是多少？', type: 'text', placeholder: '例如 SAT 1480 / ACT 34', showIf: { field: 'hasStdScoreHS', value: '已有 SAT / ACT 成绩' } },
+          { id: 'testReadiness', label: '你目前在语言或标化准备上更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['已经接近或达到目标分数', '有一定基础，但还需要明显提升', '刚开始准备，分数还不稳定', '尚未系统开始', '不确定目标分数应该是多少'] },
+          { id: 'testSupplement', label: '关于语言或标化成绩，还有没有需要补充说明的情况？', type: 'textarea', placeholder: '比如考试时间、目标分数、是否准备再考等。', showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] } },
         ],
       },
-
-      // ---- 模块 E：背景经历 ----
       {
-        id: 'c_module_e',
-        title: '模块 E：背景经历',
-        desc: '课外经历是申请差异化的核心，请重点描述成果而非只写名称。',
-        insight: '经历的深度与成果质量，是判断高辨识度背景的关键维度。',
+        id: 'c_a4',
+        title: '模块 A4：软背景竞争力',
+        desc: '请选择已有经历类型，并补充各类经历质量。',
+        insight: '软背景的深度、成果和主线，会显著影响高层级申请辨识度。',
         fields: [
-          {
-            id: 'expTypes',
-            label: '你目前已经有过哪些类型的经历？（最多选 6）',
-            type: 'checkbox',
-            maxSelect: 6,
-            options: [
-              '学术竞赛',
-              '科研 / 研究项目',
-              '实习 / 工作实践',
-              '社团 / 学生组织',
-              '志愿活动 / 公益经历',
-              '创业 / 项目实践',
-              '国际项目 / 夏校 / 交换',
-              '作品集 / 公开成果',
-              '暂无特别突出的经历',
-            ],
-          },
-          // 条件显现：填写竞赛经历
-          {
-            id: 'expCompetition',
-            label: '学术竞赛经历',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项学术竞赛经历（竞赛名称、级别、成绩）',
-            showIf: { field: 'expTypes', includes: '学术竞赛' },
-          },
-          // 条件显现：填写科研经历
-          {
-            id: 'expResearch',
-            label: '科研 / 研究项目经历',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项科研或研究经历（项目名称、参与方式、成果）',
-            showIf: { field: 'expTypes', includes: '科研 / 研究项目' },
-          },
-          // 条件显现：填写实习经历
-          {
-            id: 'expInternship',
-            label: '实习 / 工作实践经历',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项实习或实践经历（公司/机构、岗位、时长）',
-            showIf: { field: 'expTypes', includes: '实习 / 工作实践' },
-          },
-          // 条件显现：填写社团经历
-          {
-            id: 'expClub',
-            label: '社团 / 学生组织经历',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项组织或活动经历（名称、角色、成果）',
-            showIf: { field: 'expTypes', includes: '社团 / 学生组织' },
-          },
-          // 条件显现：填写志愿经历
-          {
-            id: 'expVolunteer',
-            label: '志愿活动 / 公益经历',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项相关经历（项目名称、时长、参与方式）',
-            showIf: { field: 'expTypes', includes: '志愿活动 / 公益经历' },
-          },
-          // 条件显现：填写创业经历
-          {
-            id: 'expEntrepreneur',
-            label: '创业 / 项目实践经历',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项项目经历（项目名称、角色、结果）',
-            showIf: { field: 'expTypes', includes: '创业 / 项目实践' },
-          },
-          // 条件显现：填写国际经历
-          {
-            id: 'expInternational',
-            label: '国际项目 / 夏校 / 交换经历',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项国际化经历（项目名称、机构、时长）',
-            showIf: { field: 'expTypes', includes: '国际项目 / 夏校 / 交换' },
-          },
-          // 条件显现：填写作品集
-          {
-            id: 'expPortfolio',
-            label: '作品集 / 公开成果',
-            type: 'textarea',
-            placeholder: '请填写你最有代表性的 1–2 项成果（作品名称、类型、发表/展示情况）',
-            showIf: { field: 'expTypes', includes: '作品集 / 公开成果' },
-          },
-          {
-            id: 'expOverallState',
-            label: '你目前这些经历的整体状态更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: [
-              '已经形成比较清晰的主线',
-              '有一些不错的经历，但整体还比较分散',
-              '有少量经历，但还不够形成竞争力',
-              '整体上还比较空白',
-            ],
-          },
-          {
-            id: 'expInvestStyle',
-            label: '你目前在课外经历上的投入方式更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: [
-              '长期在一个方向持续积累',
-              '同时尝试多个方向，希望全面一些',
-              '以学校安排或常规参与为主',
-              '还没有形成系统投入',
-            ],
-          },
+          { id: 'expTypes', label: '你目前已经有过哪些类型的经历？', type: 'checkbox', maxSelect: 6, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['学术竞赛', '科研 / 研究项目', '校内课程项目', '社团 / 学生组织', '志愿活动 / 公益经历', '创业 / 项目实践', '国际项目 / 夏校 / 交换', '艺术作品 / 作品集 / 公开成果', '体育 / 音乐 / 特长类长期投入', '暂无特别突出的经历'] },
+          { id: 'expCompetition', label: '你的竞赛经历更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '学术竞赛' }, options: ['国际级 / 国家级奖项', '省市级 / 区域级奖项', '校内奖项或参与经历', '参加过但没有明显奖项', '不确定'] },
+          { id: 'expResearch', label: '你的科研经历更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '科研 / 研究项目' }, options: ['有论文、发表、展示或正式成果', '有导师指导的系统研究项目', '有短期科研营 / 研究体验项目', '只是初步接触，还没有完整成果', '不确定'] },
+          { id: 'expCourseProject', label: '你的校内课程项目更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '校内课程项目' }, options: ['有清晰成果，可作为申请材料展示', '有一定完成度，但展示性一般', '主要是课堂作业或普通项目', '不确定'] },
+          { id: 'expClub', label: '你的社团 / 学生组织经历更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '社团 / 学生组织' }, options: ['核心负责人 / 发起人', '长期稳定参与，并承担具体工作', '普通成员参与', '短期或零散参与'] },
+          { id: 'expVolunteer', label: '你的志愿活动 / 公益经历更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '志愿活动 / 公益经历' }, options: ['长期持续，有明确主题或成果', '有多次参与，但主题较分散', '偶尔参与', '主要是学校统一安排'] },
+          { id: 'expEntrepreneur', label: '你的创业 / 项目实践经历更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '创业 / 项目实践' }, options: ['自己发起并持续运营，有真实用户或成果', '参与核心执行，有一定产出', '短期项目或比赛项目', '只是初步尝试'] },
+          { id: 'expInternational', label: '你的国际项目 / 夏校 / 交换经历更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '国际项目 / 夏校 / 交换' }, options: ['高选择性项目 / 名校夏校 / 正式交换', '主题明确的学术或领导力项目', '普通海外体验项目', '短期参访或游学'] },
+          { id: 'expPortfolio', label: '你的艺术作品 / 作品集 / 公开成果更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '艺术作品 / 作品集 / 公开成果' }, options: ['已形成完整作品集或公开展示成果', '有多个成熟作品', '有少量作品，但还不系统', '仍在准备中'] },
+          { id: 'expOverallState', label: '你目前这些经历的整体状态更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['已经形成比较清晰的申请主线', '有一些不错的经历，但目前比较分散', '有少量经历，但竞争力还不够强', '整体还比较空白', '不确定如何判断'] },
+          { id: 'experienceSupplement', label: '关于背景经历，还有没有需要补充说明的内容？', type: 'textarea', placeholder: '可以补充最重要的项目、奖项、作品或长期投入。', showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] } },
         ],
       },
-
-      // ---- 模块 F：学习方式、环境偏好与发展路径倾向 ----
       {
-        id: 'c_module_f',
-        title: '模块 F：学习方式与发展路径倾向',
-        desc: '以下问题帮助系统深入理解你的学习偏好与发展倾向，请选择最接近自己真实状态的答案。',
-        insight: '这一模块用于系统推理，将与前面的客观数据结合，形成更完整的个人画像。',
+        id: 'c_a5',
+        title: '模块 A5：专业与方向匹配度',
+        desc: '请填写本科阶段目标专业、选择因素与学习期待。',
+        insight: '专业方向清晰度会影响申请叙事和学校匹配策略。',
         fields: [
-          {
-            id: 'preferEnv',
-            label: '如果未来进入一个新的学习环境，你更希望它接近哪种状态？',
-            type: 'radio',
-            required: true,
-            options: [
-              '竞争激烈、节奏快、身边同学都很强',
-              '资源丰富、国际化、多元机会多',
-              '更安静、适合深入学习和钻研',
-              '目前很难判断',
-            ],
-          },
-          {
-            id: 'learningStyle',
-            label: '你更习惯哪种学习方式？',
-            type: 'radio',
-            required: true,
-            options: [
-              '通过阅读、理论和系统框架理解问题',
-              '通过项目、实验和实践来理解问题',
-              '两种方式都需要，缺一不可',
-            ],
-          },
-          {
-            id: 'studyOrientation',
-            label: '如果未来进入大学或研究生阶段，你更希望自己的学习状态更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: ['更偏学术和研究导向', '更偏应用和实践导向', '希望两者兼顾', '目前还不清楚'],
-          },
-          {
-            id: 'postGradPlan',
-            label: '你对毕业后的打算更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: ['尽快进入工作岗位', '先工作，再考虑继续深造', '本身就有继续深造的计划', '目前还不确定'],
-          },
-          {
-            id: 'cityPreference',
-            label: '如果未来长期在一个城市学习和生活，你更偏向哪种环境？',
-            type: 'radio',
-            required: true,
-            options: [
-              '文化多样性强、机会多的大城市',
-              '节奏平衡、资源不错的城市',
-              '安静、学术氛围浓的中小城市',
-              '暂时没有明显偏好',
-            ],
-          },
-          {
-            id: 'newFieldReaction',
-            label: '面对一个全新的领域，你通常更接近哪种反应？',
-            type: 'radio',
-            required: true,
-            options: [
-              '先大量了解信息，再决定要不要深入',
-              '先试着做一点，在实践中判断',
-              '先和别人交流，看看适不适合自己',
-              '看具体情况，没有固定方式',
-            ],
-          },
-          {
-            id: 'sustainedInterest',
-            label: '哪类事情更容易让你持续投入？',
-            type: 'radio',
-            required: true,
-            options: [
-              '复杂问题和逻辑推理',
-              '能看见结果的实际项目',
-              '与人沟通、表达和合作',
-              '新想法、新内容和创造性表达',
-              '还在探索中',
-            ],
-          },
+          { id: 'targetMajors', label: '你当前最想申请的本科专业方向有哪些？', type: 'checkbox', maxSelect: 4, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['金融 / 会计 / 商业分析', '经济 / 数学 / 统计', '计算机 / AI / 数据科学', '工程 / 机械 / 电子 / 材料', '生物 / 医学 / 公共卫生', '心理学 / 教育', '社会科学 / 公共政策 / 国际关系', '传媒 / 新闻 / 人文', '法律相关方向', '设计 / 艺术', '暂不确定'] },
+          { id: 'majorClarity', label: '你目前对专业方向的状态更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['已经非常明确', '有 1–2 个重点方向，仍在比较', '有兴趣方向，但还没认真研究过', '目前还比较模糊', '完全不确定'] },
+          { id: 'majorFactors', label: '你选择专业时更看重哪些因素？', type: 'checkbox', maxSelect: 3, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['未来就业机会', '学校专业排名和资源', '自己长期兴趣', '申请难度和录取概率', '家庭建议或已有资源', '是否方便未来读研', '暂时没有明确判断'] },
+          { id: 'futureStudyState', label: '你未来本科阶段更希望自己的学习状态接近哪一类？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['专业目标明确，围绕一个方向深入学习', '先进入综合实力强的学校，再逐步探索专业', '更看重就业和实习机会', '更看重自由探索和跨学科学习', '还没有想清楚'] },
+          { id: 'majorSupplement', label: '关于专业方向，还有没有需要补充说明的内容？', type: 'textarea', placeholder: '比如特别感兴趣的专业、想避免的专业、家长期望方向等。', showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] } },
         ],
       },
-
-      // ---- 模块 G：申请风险与报告目标 ----
       {
-        id: 'c_module_g',
-        title: '模块 G：申请风险与报告目标',
-        desc: '请告诉系统你当前最担心的申请问题，以及最希望从这份报告中获得哪些判断。',
-        insight: '明确你的核心诉求，将帮助系统生成更具针对性的评估与建议。',
+        id: 'c_a6',
+        title: '模块 A6：行为与性格模式',
+        desc: '请选择更接近你真实学习和行为状态的选项。',
+        insight: '行为模式会影响学校环境、专业路径和补强策略匹配。',
         fields: [
-          {
-            id: 'mainWorries',
-            label: '你当前最担心的申请问题是什么？（最多选 2）',
-            type: 'checkbox',
-            maxSelect: 2,
-            options: [
-              '申请不到理想学校',
-              '目标专业风险太高',
-              '背景竞争力不够',
-              '不知道该优先补什么',
-              '不知道该如何选国家/学校',
-              '准备节奏偏晚',
-              '担心投入很多但结果一般',
-            ],
-          },
-          {
-            id: 'prepState',
-            label: '你目前的准备状态更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: ['已经在系统准备', '有一些准备，但不成体系', '还没正式开始', '只是先了解一下'],
-          },
-          {
-            id: 'familyExpectation',
-            label: '家庭对结果的期待更接近哪一项？',
-            type: 'radio',
-            required: true,
-            options: [
-              '尽可能冲击更高层级学校',
-              '在较高层级中争取更稳妥结果',
-              '结果稳定更重要',
-              '希望系统判断更适合的策略',
-            ],
-          },
-          {
-            id: 'reportFocus',
-            label: '你最希望这份报告重点告诉你的是什么？（最多选 2）',
-            type: 'checkbox',
-            maxSelect: 2,
-            options: [
-              '我能冲刺到哪些学校',
-              '我更匹配哪些学校',
-              '我的关键短板是什么',
-              '我应该优先补什么',
-              '我的目标专业风险高不高',
-              '除了我现在偏好的国家外，还有哪些地方适合我',
-            ],
-          },
+          { id: 'competitionResponse', label: '在一个高强度竞争环境中，你通常会感到更有动力还是更有压力？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['非常有动力，会被竞争氛围激发', '比较有动力，但也需要适当休息和调整', '动力和压力基本平衡', '比较有压力，需要比较稳定的节奏', '非常有压力，不太适应长期高竞争环境'] },
+          { id: 'newTaskReaction', label: '面对一个全新的任务或领域时，你通常更接近哪种反应？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['会主动查资料、拆解问题并开始尝试', '会先观察和了解，再逐步开始', '希望有人给清晰方法后再开始', '容易拖延，不太知道从哪里开始', '视情况而定'] },
+          { id: 'longProjectState', label: '当一个任务需要持续几个月才能看到成果时，你通常更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['能持续推进，越做越清楚', '可以推进，但需要阶段性反馈', '容易中断，需要外部督促', '很难长期坚持', '没有类似经历'] },
+          { id: 'openTaskState', label: '当一个任务没有标准答案、需要自己设计方案时，你通常更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['很喜欢这类任务，愿意提出新想法和新方案', '可以接受，但需要先看一些案例或参考', '更喜欢有明确要求和评分标准的任务', '面对开放性任务时会比较不确定', '不确定'] },
+          { id: 'teamRole', label: '在团队项目或集体活动中，你通常更自然地承担哪类角色？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['发起者 / 组织者，推动大家往前走', '沟通协调者，负责连接不同成员', '分析和执行者，负责把具体任务做好', '创意贡献者，负责提出想法和表达', '更习惯独立完成自己的部分', '不确定'] },
+          { id: 'attractedTasks', label: '在完成作业、项目或作品时，你更容易被哪类任务吸引？', type: 'checkbox', maxSelect: 2, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['需要创意表达、策划或设计的任务', '需要逻辑分析、数据处理或推理的任务', '需要深入阅读、研究和写作的任务', '需要沟通、展示或公众表达的任务', '需要细致执行、整理和优化的任务', '暂不明确'] },
+          { id: 'detailRuleAttitude', label: '你做事情时对细节和规则的态度更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['很重视细节，会反复检查和打磨', '比较重视细节，但不会过度纠结', '更重视整体方向，细节后期再优化', '不太喜欢处理细节，容易忽略小问题', '视任务而定'] },
+          { id: 'socialState', label: '在新的社交环境中，你通常更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['比较主动，容易认识新朋友', '熟悉后会比较愿意交流', '更习惯先观察，再慢慢融入', '更喜欢安静独处或小范围社交', '不确定'] },
+          { id: 'campusPreference', label: '你更偏好的大学生活环境是？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['大城市，机会多、活动多、节奏快', '学术氛围强、校园资源集中', '生活舒适、安全稳定、压力适中', '文化多元、社交和活动丰富', '安静独立，适合专注学习和个人成长', '不确定'] },
+          { id: 'learningAtmosphere', label: '你更容易在哪种学习氛围中发挥得好？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['竞争强、同学都很优秀的环境', '老师指导清晰、课程结构明确的环境', '自由度高、可以自己探索的环境', '同学关系紧密、合作氛围强的环境', '安静稳定、干扰较少的环境', '不确定'] },
+        ],
+      },
+      {
+        id: 'c_a7',
+        title: '模块 A7：申请策略偏好与外部约束',
+        desc: '请填写目标国家、学校层级、预算与报告关注点。',
+        insight: '外部约束会影响最终选校策略和补强优先级。',
+        fields: [
+          { id: 'targetCountries', label: '你当前最想申请的国家 / 地区有哪些？', type: 'checkbox', maxSelect: 4, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['美国', '英国', '中国香港', '新加坡', '加拿大', '澳大利亚', '欧洲其他国家', '其他地区', '暂不确定'] },
+          { id: 'countryReasons', label: '你选择这些国家 / 地区主要是因为哪些原因？', type: 'checkbox', maxSelect: 3, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['学校整体排名和认可度', '专业资源更强', '就业与职业发展机会', '预算和性价比', '环境与生活方式', '家庭偏好或已有资源', '还没有系统判断'] },
+          { id: 'tierExpectation', label: '你当前对学校层级的期待更接近哪种情况？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['尽可能冲击更高层级学校，可以接受一定风险', '希望冲刺和稳妥兼顾', '更看重结果稳定和性价比', '目前没有明确目标，希望系统帮我判断'] },
+          { id: 'familyExpectation', label: '你的家庭对申请结果的期待更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['明确希望冲刺名校', '希望有较好学校，同时录取要相对稳妥', '更看重性价比和最终落地', '家庭目前还没有明确想法'] },
+          { id: 'budgetExpectation', label: '你的家庭预计本科留学预算更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['预算相对充足，可以优先考虑更高质量选择', '有预算范围，但可以为更好的学校适当提高', '预算控制比较重要，需要兼顾性价比', '预算暂时不确定'] },
+          { id: 'mainWorries', label: '你当前最担心的申请问题是什么？', type: 'checkbox', maxSelect: 2, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['成绩不够有竞争力', '语言或标化还不够', '背景经历不够突出', '专业方向不清晰', '选校层级不确定', '不知道从哪里开始规划'] },
+          { id: 'reportFocus', label: '你最希望这份报告重点告诉你的是什么？', type: 'checkbox', maxSelect: 2, showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] }, options: ['我大概能申请到什么层级的学校', '我目前最主要的短板在哪里', '我应该优先提升什么', '我适合申请哪些国家 / 地区', '我适合什么样的专业方向'] },
+          { id: 'finalSupplement', label: '还有没有其他你希望补充给系统的信息？', type: 'textarea', placeholder: '比如特殊家庭要求、预算限制、目标学校、目标城市、特殊背景等。', showIf: { any: [{ field: 'applyGoal', value: '高中申请海外本科' }, { field: 'uncertainStage', value: '我目前是高中阶段' }] } },
+        ],
+      },
+      {
+        id: 'c_b1',
+        title: '模块 B1：基础信息与申请时间',
+        desc: '本科申请海外硕士路径。',
+        insight: '本科学校、专业与申请时间决定硕士申请的基本盘。',
+        fields: [
+          { id: 'schoolName', label: '你目前所在学校名称是？', type: 'text', placeholder: '请填写学校全称', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+          { id: 'schoolTypeUG', label: '你目前所在学校更接近哪一类？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['国内 985 / 211 本科', '国内普通本科', '中外合作办学本科', '海外本科', '其他'] },
+          { id: 'gradeUG', label: '你当前所在阶段是？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['大一大二', '大三', '大四 / 应届申请', '已毕业 / Gap 中'] },
+          { id: 'enrollTime', label: '你计划申请的入学时间更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['1 年内', '1–2 年内', '2 年以上', '还没确定'] },
+          { id: 'currentMajor', label: '你当前本科专业是？', type: 'text', placeholder: '请填写当前专业名称', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+        ],
+      },
+      {
+        id: 'c_b2',
+        title: '模块 B2：学术基础实力',
+        desc: '请填写本科成绩、排名、核心专业课和能力方向。',
+        insight: '硕士申请中，GPA 和核心课程表现是最重要的硬指标之一。',
+        fields: [
+          { id: 'gpaScore', label: '你目前的 GPA / 平均成绩是多少？', type: 'text', placeholder: '例如 GPA 3.6 / 均分 85 / WAM 78', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+          { id: 'rankLevel', label: '你的专业或年级排名情况更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['前 10%', '前 30%', '中等水平', '偏后但有提升空间', '学校不提供排名 / 不清楚'] },
+          { id: 'gradeTrend', label: '你目前的成绩趋势更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['最近一到两个学期明显提升', '整体比较稳定', '有一定波动', '最近出现明显下滑', '不确定'] },
+          { id: 'coreCourseState', label: '你的核心专业课表现更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['核心专业课明显强于整体 GPA', '核心专业课与整体 GPA 基本一致', '核心专业课相对薄弱', '不确定哪些算核心专业课'] },
+          { id: 'strongSubjects', label: '你目前最有把握的学科或能力方向有哪些？', type: 'checkbox', maxSelect: 3, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['数学 / 统计 / 计量', '编程 / 数据分析', '金融 / 会计 / 商业分析', '工程 / 技术方向', '生物 / 医学 / 公共卫生', '社会科学 / 公共政策', '写作 / 研究 / 文献分析', '设计 / 作品集', '暂不明确'] },
+          { id: 'academicSupplement', label: '关于你的学术表现，还有没有需要补充说明的情况？', type: 'textarea', placeholder: '比如转专业、交换学期、成绩波动、某些核心课程特别强或特别弱等。', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+        ],
+      },
+      {
+        id: 'c_b3',
+        title: '模块 B3：语言与标化达标能力',
+        desc: '请填写语言、GRE/GMAT 与备考状态。',
+        insight: '语言和 GRE/GMAT 是项目筛选、奖学金和学校层级判断的重要变量。',
+        fields: [
+          { id: 'hasLangScore', label: '你目前是否已有语言成绩？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['已有托福 / 雅思 / 多邻国成绩', '正在准备，尚未出分', '还没有开始准备', '不确定是否需要'] },
+          { id: 'langScore', label: '你的语言成绩是多少？', type: 'text', placeholder: '例如 TOEFL 105 / IELTS 7.5', showIf: { field: 'hasLangScore', value: '已有托福 / 雅思 / 多邻国成绩' } },
+          { id: 'hasStdScoreUG', label: '你目前是否已有 GRE / GMAT 成绩？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['已有 GRE / GMAT 成绩', '正在准备', '暂无，但计划准备', '暂无，且目标项目大概率不需要', '不确定是否需要'] },
+          { id: 'stdScore', label: '你的 GRE / GMAT 成绩是多少？', type: 'text', placeholder: '例如 GRE 325 / GMAT 710', showIf: { field: 'hasStdScoreUG', value: '已有 GRE / GMAT 成绩' } },
+          { id: 'testReadiness', label: '你目前在语言或标化准备上更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['已经接近或达到目标分数', '有一定基础，但还需要明显提升', '刚开始准备，分数还不稳定', '尚未系统开始', '不确定目标分数应该是多少'] },
+          { id: 'testSupplement', label: '关于语言或标化成绩，还有没有需要补充说明的情况？', type: 'textarea', placeholder: '比如考试时间、目标分数、是否准备再考、是否考虑免 GRE / GMAT 等。', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+        ],
+      },
+      {
+        id: 'c_b4',
+        title: '模块 B4：软背景竞争力',
+        desc: '请选择科研、实习、项目、竞赛等经历，并判断质量。',
+        insight: '硕士申请中，科研、实习和项目经历决定专业匹配度与叙事厚度。',
+        fields: [
+          { id: 'expTypes', label: '你目前已经有过哪些类型的经历？', type: 'checkbox', maxSelect: 6, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['科研 / 研究项目', '实习 / 工作实践', '课程项目 / Capstone', '学术竞赛 / 商赛 / 建模竞赛', '社团 / 学生组织', '志愿活动 / 公益经历', '创业 / 项目实践', '论文 / 发表 / 公开成果', '作品集 / 设计作品', '暂无特别突出的经历'] },
+          { id: 'expResearch', label: '你的科研经历更接近哪一类？', type: 'radio', showIf: { field: 'expTypes', includes: '科研 / 研究项目' }, options: ['有论文发表 / 投稿 / 会议展示', '有 RA / 实验室 / 导师指导经历', '有系统研究项目，但暂无公开成果', '主要是课程研究或短期项目', '只是初步参与'] },
+          { id: 'expInternship', label: '你的实习质量更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '实习 / 工作实践' }, options: ['头部公司 / 大厂 / 知名机构核心岗位', '行业相关公司，岗位内容较匹配', '普通实习，但与申请方向有一定关系', '实习与申请方向关系不大', '只有很短期或体验型经历'] },
+          { id: 'expCourseProject', label: '你的课程项目 / Capstone 更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '课程项目 / Capstone' }, options: ['有完整成果，可展示技术 / 研究 / 商业分析能力', '有一定完成度，可作为申请素材', '只是普通课程作业', '不确定是否有申请价值'] },
+          { id: 'expCompetition', label: '你的竞赛经历更接近哪一项？', type: 'radio', showIf: { field: 'expTypes', includes: '学术竞赛 / 商赛 / 建模竞赛' }, options: ['国际级 / 国家级奖项', '区域级 / 校级重要奖项', '参加过但没有明显奖项', '体验型参与'] },
+          { id: 'expPublication', label: '你的论文 / 发表 / 公开成果更接近哪一类？', type: 'radio', showIf: { field: 'expTypes', includes: '论文 / 发表 / 公开成果' }, options: ['已发表 / 已录用 / 公开展示', '已完成论文或成果，准备投稿 / 展示', '有初步成果但不完整', '只是计划中'] },
+          { id: 'recommendationResources', label: '推荐信资源情况', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['有 2–3 位比较熟悉我的老师 / 导师，愿意支持申请', '有老师可以推荐，但互动不算深入', '暂时没有明确推荐人', '不确定推荐信应该找谁'] },
+          { id: 'expOverallState', label: '你目前这些经历的整体状态更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['已经形成比较清晰的专业主线', '有一些不错的经历，但目前比较分散', '有少量经历，但竞争力还不够强', '整体还比较空白', '不确定如何判断'] },
+          { id: 'experienceSupplement', label: '关于科研、实习或项目经历，还有没有需要补充说明的内容？', type: 'textarea', placeholder: '可以补充最重要的实习公司、科研方向、项目名称、论文、奖项或成果。', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+        ],
+      },
+      {
+        id: 'c_b5',
+        title: '模块 B5：专业与方向匹配度',
+        desc: '请填写硕士申请方向、跨专业状态与项目偏好。',
+        insight: '硕士申请比本科更看重专业方向和已有背景之间的匹配。',
+        fields: [
+          { id: 'targetMajors', label: '你当前最想申请的硕士专业方向有哪些？', type: 'checkbox', maxSelect: 4, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['金融 / 会计 / 商业分析', '经济 / 数学 / 计量', '计算机 / AI / 数据科学', '工程 / 机械 / 电子 / 材料', '生物 / 医学 / 公共卫生', '心理学 / 教育', '社会科学 / 公共政策 / 国际关系', '传媒 / 新闻 / 人文', '法律相关方向', '设计 / 艺术', '暂不确定'] },
+          { id: 'majorClarity', label: '你目前对申请方向的状态更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['已经非常明确', '有 1–2 个重点方向，仍在比较', '有大方向，但还没具体到项目', '目前还比较模糊', '完全不确定'] },
+          { id: 'crossMajorPlan', label: '你是否考虑跨专业申请？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['不考虑，基本沿当前专业申请', '轻度跨专业，仍与本科背景相关', '明显跨专业，但已有相关经历支撑', '明显跨专业，目前相关背景还不足', '不确定是否算跨专业'] },
+          { id: 'programOrientation', label: '你更希望硕士项目偏向哪种培养目标？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['就业导向，重视实习和职业出口', '学术导向，为读博或研究做准备', '就业和学术兼顾', '先拿到更好学校平台，再进一步探索', '不确定'] },
+          { id: 'majorFactors', label: '你选择专业时更看重哪些因素？', type: 'checkbox', maxSelect: 3, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['未来就业机会', '学校和项目排名', '与本科背景匹配度', '申请成功率', '回国认可度', '是否方便留在当地就业', '自己长期兴趣', '家庭建议或已有资源'] },
+          { id: 'majorSupplement', label: '关于专业方向，还有没有需要补充说明的内容？', type: 'textarea', placeholder: '比如想转的方向、想避开的方向、目标行业、是否读博等。', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+        ],
+      },
+      {
+        id: 'c_b6',
+        title: '模块 B6：行为与性格模式',
+        desc: '请选择更接近你在学习、项目、实习中的真实状态。',
+        insight: '个人行为模式会影响项目类型、国家地区和职业出口匹配。',
+        fields: [
+          { id: 'competitionResponse', label: '在高强度竞争环境中，你通常会感到更有动力还是更有压力？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['非常有动力，会被竞争氛围激发', '比较有动力，但也需要适当休息和调整', '动力和压力基本平衡', '比较有压力，需要比较稳定的节奏', '非常有压力，不太适应长期高竞争环境'] },
+          { id: 'newTaskReaction', label: '面对一个没有标准答案的项目或任务时，你通常更接近哪种反应？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['会主动查资料、拆解问题并推进', '会先观察和了解，再逐步开始', '希望有人给清晰方法后再开始', '容易拖延，不太知道从哪里开始', '视情况而定'] },
+          { id: 'longProjectState', label: '当一个项目需要持续几个月才能看到成果时，你通常更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['能持续推进，越做越清楚', '可以推进，但需要阶段性反馈', '容易中断，需要外部督促', '很难长期坚持', '没有类似经历'] },
+          { id: 'openTaskState', label: '当一个项目需要自己设计思路、没有固定模板时，你通常更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['很喜欢这类任务，愿意提出新想法和新方案', '可以接受，但需要先看一些案例或参考', '更喜欢有明确要求和评分标准的任务', '面对开放性任务时会比较不确定', '不确定'] },
+          { id: 'teamRole', label: '在团队项目、实习或研究合作中，你通常更自然地承担哪类角色？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['发起者 / 组织者，推动项目往前走', '沟通协调者，负责连接不同成员', '分析和执行者，负责把具体任务做好', '创意贡献者，负责提出想法和表达', '更习惯独立完成自己的部分', '不确定'] },
+          { id: 'attractedTasks', label: '在学习、项目或实习中，你更容易被哪类任务吸引？', type: 'checkbox', maxSelect: 2, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['需要创意表达、策划或设计的任务', '需要逻辑分析、数据处理或推理的任务', '需要深入阅读、研究和写作的任务', '需要沟通、展示或对外协作的任务', '需要细致执行、整理和优化的任务', '暂不明确'] },
+          { id: 'detailRuleAttitude', label: '你做事情时对细节和规则的态度更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['很重视细节，会反复检查和打磨', '比较重视细节，但不会过度纠结', '更重视整体方向，细节后期再优化', '不太喜欢处理细节，容易忽略小问题', '视任务而定'] },
+          { id: 'socialState', label: '在新的社交或学习环境中，你通常更接近哪种状态？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['比较主动，容易认识新朋友和建立联系', '熟悉后会比较愿意交流', '更习惯先观察，再慢慢融入', '更喜欢安静独处或小范围社交', '不确定'] },
+          { id: 'campusPreference', label: '你更偏好的硕士学习和生活环境是？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['大城市，实习机会多、行业资源多、节奏快', '学术氛围强、校园资源集中', '生活舒适、安全稳定、压力适中', '文化多元、社交和活动丰富', '安静独立，适合专注学习和个人成长', '不确定'] },
+          { id: 'learningAtmosphere', label: '你更容易在哪种项目氛围中发挥得好？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['竞争强、同学都很优秀的环境', '老师指导清晰、课程结构明确的环境', '自由度高、可以自己探索的环境', '同学关系紧密、合作氛围强的环境', '安静稳定、干扰较少的环境', '不确定'] },
+        ],
+      },
+      {
+        id: 'c_b7',
+        title: '模块 B7：申请策略偏好与外部约束',
+        desc: '请填写目标国家、层级、预算、职业方向和报告关注点。',
+        insight: '硕士申请需要同时平衡学校层级、项目时长、就业方向和预算。',
+        fields: [
+          { id: 'targetCountries', label: '你当前最想申请的国家 / 地区有哪些？', type: 'checkbox', maxSelect: 4, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['美国', '英国', '中国香港', '新加坡', '加拿大', '澳大利亚', '欧洲其他国家', '其他地区', '暂不确定'] },
+          { id: 'countryReasons', label: '你选择这些国家 / 地区主要是因为哪些原因？', type: 'checkbox', maxSelect: 3, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['学校整体排名和认可度', '专业资源更强', '就业与职业发展机会', '预算和性价比', '环境与生活方式', '家庭偏好或已有资源', '还没有系统判断'] },
+          { id: 'tierExpectation', label: '你当前对学校层级的期待更接近哪种情况？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['尽可能冲击更高层级学校，可以接受一定风险', '希望冲刺和稳妥兼顾', '更看重结果稳定和性价比', '目前没有明确目标，希望系统帮我判断'] },
+          { id: 'familyExpectation', label: '你的家庭对申请结果的期待更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['明确希望冲刺名校', '希望有较好学校，同时录取要相对稳妥', '更看重性价比和最终落地', '家庭目前还没有明确想法'] },
+          { id: 'budgetExpectation', label: '你的家庭预计硕士留学预算更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['预算相对充足，可以优先考虑更高质量选择', '有预算范围，但可以为更好的学校适当提高', '预算控制比较重要，需要兼顾性价比', '预算暂时不确定'] },
+          { id: 'careerPlan', label: '你更希望毕业后的就业方向接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['优先留在当地就业', '优先回国就业', '两边都可以，看机会', '更偏向继续读博或学术发展', '暂不确定'] },
+          { id: 'programLength', label: '你能接受的项目时长更接近哪一项？', type: 'radio', required: true, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['1 年制项目优先', '1.5–2 年项目都可以', '更希望项目时间长一些，方便实习和适应', '目前不确定'] },
+          { id: 'mainWorries', label: '你当前最担心的申请问题是什么？', type: 'checkbox', maxSelect: 2, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['GPA / 成绩不够有竞争力', '语言或 GRE / GMAT 还不够', '科研 / 实习 / 项目背景不够突出', '专业方向不够清晰', '选校层级不确定', '不知道从哪里开始规划'] },
+          { id: 'reportFocus', label: '你最希望这份报告重点告诉你的是什么？', type: 'checkbox', maxSelect: 2, showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] }, options: ['我大概能申请到什么层级的学校', '我目前最主要的短板在哪里', '我应该优先提升什么', '我适合申请哪些国家 / 地区', '我适合什么样的专业或项目方向'] },
+          { id: 'finalSupplement', label: '还有没有其他你希望补充给系统的信息？', type: 'textarea', placeholder: '比如特殊家庭要求、预算限制、目标学校、目标项目、目标城市、特殊背景等。', showIf: { any: [{ field: 'applyGoal', value: '本科申请海外硕士' }, { field: 'uncertainStage', value: '我目前是本科阶段' }] } },
+        ],
+      },
+      {
+        id: 'c_simple',
+        title: '简化评估：其他情况',
+        desc: '如果你暂时不属于高中本科或本科硕士路径，请先补充最基本的信息。',
+        insight: '简化信息会帮助系统给出初步判断，后续可由顾问进一步确认。',
+        fields: [
+          { id: 'simpleCurrentStage', label: '请简单描述你当前的学习或工作阶段', type: 'text', placeholder: '例如初中、研究生、已工作、转学规划等', showIf: { field: 'uncertainStage', value: '其他情况' } },
+          { id: 'simpleGoal', label: '你目前最想解决的问题是什么？', type: 'textarea', placeholder: '请说明你想申请什么、最困惑什么、希望报告重点判断什么。', showIf: { field: 'uncertainStage', value: '其他情况' } },
+          { id: 'targetCountries', label: '你当前可能考虑的国家 / 地区有哪些？', type: 'checkbox', maxSelect: 4, showIf: { field: 'uncertainStage', value: '其他情况' }, options: ['美国', '英国', '中国香港', '新加坡', '加拿大', '澳大利亚', '欧洲其他国家', '其他地区', '暂不确定'] },
+          { id: 'reportFocus', label: '你最希望这份报告重点告诉你的是什么？', type: 'checkbox', maxSelect: 2, showIf: { field: 'uncertainStage', value: '其他情况' }, options: ['我适合什么路径', '我目前最主要的短板在哪里', '我应该优先提升什么', '我适合申请哪些国家 / 地区', '我需要顾问进一步判断什么'] },
         ],
       },
     ],
@@ -2012,6 +1761,7 @@ const APP = (() => {
         const prepState = data.prepState || '未填写';
         const familyExpectation = data.familyExpectation || '未填写';
         const reportFocus = Array.isArray(data.reportFocus) ? data.reportFocus.join('、') : (data.reportFocus || '未填写');
+        const fullAnswers = JSON.stringify(data, null, 2);
 
         return `请基于以下学生问卷档案，生成《全球留学竞争力评估报告》完整结构化数据：
 
@@ -2063,6 +1813,9 @@ ${expDetails}
 准备状态：${prepState}
 家庭期待：${familyExpectation}
 报告关注点：${reportFocus}
+
+【完整问卷原始答案】
+${fullAnswers}
 
 ===================
 
@@ -3081,7 +2834,7 @@ ${expDetails}
     redeemCode,
     hasReportAccess,
     sendVerificationCode,
-    checkPhoneRegistered,
+    checkEmailRegistered,
     isLizhihuiMode,
     getEntryContext,
     fetchReport,

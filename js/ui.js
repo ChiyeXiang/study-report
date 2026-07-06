@@ -76,17 +76,16 @@ const UI = (() => {
     const name = document.getElementById('regName').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
-    const phone = document.getElementById('regPhone').value.trim();
     const verificationCode = document.getElementById('regCode').value.trim();
-    if (!name || !phone || !verificationCode) {
-      showAuthError('register', '请填写姓名、手机号和短信验证码');
+    if (!name || !email || !verificationCode) {
+      showAuthError('register', '请填写姓名、邮箱和邮箱验证码');
       return;
     }
     if (password && password.length < 6) {
       showAuthError('register', '密码至少需要 6 位');
       return;
     }
-    const result = await APP.register(name, email, password, phone, verificationCode);
+    const result = await APP.register(name, email, password, verificationCode);
     if (result.ok) {
       hideModal('modalRegister');
       updateNav();
@@ -114,13 +113,13 @@ const UI = (() => {
   async function handleLogin(e) {
     e.preventDefault();
     setFormNotice('loginFormNotice', '');
-    const phone = document.getElementById('loginPhone').value.trim();
+    const email = document.getElementById('loginEmail').value.trim();
     const verificationCode = document.getElementById('loginCode').value.trim();
-    if (!phone || !verificationCode) {
-      showAuthError('login', '请填写手机号和验证码');
+    if (!email || !verificationCode) {
+      showAuthError('login', '请填写邮箱和验证码');
       return;
     }
-    const result = await APP.login(phone, '', verificationCode);
+    const result = await APP.login(email, '', verificationCode);
     if (result.ok) {
       hideModal('modalLogin');
       updateNav();
@@ -147,21 +146,21 @@ const UI = (() => {
 
   async function sendRegisterCode() {
     setFormNotice('registerFormNotice', '');
-    setFormNotice('registerPhoneNotice', '');
-    const phone = document.getElementById('regPhone').value.trim();
-    if (!phone) return setFormNotice('registerPhoneNotice', '请先填写手机号');
+    setFormNotice('registerEmailNotice', '');
+    const email = document.getElementById('regEmail').value.trim();
+    if (!email) return setFormNotice('registerEmailNotice', '请先填写邮箱地址');
     const button = getCodeButton('register');
     setButtonDisabled(button, true);
     try {
-      const registered = await APP.checkPhoneRegistered(phone);
+      const registered = await APP.checkEmailRegistered(email);
       if (registered) {
-        switchRegisteredPhoneToLogin(phone);
+        switchRegisteredEmailToLogin(email);
         return;
       }
-      await sendCode(phone, 'register');
+      await sendCode(email, 'register');
     } catch (err) {
-      if (err?.code === 'PHONE_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册')) {
-        switchRegisteredPhoneToLogin(phone);
+      if (err?.code === 'EMAIL_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册')) {
+        switchRegisteredEmailToLogin(email);
         return;
       }
       showVerificationError('register', err || '验证码发送失败，请稍后重试');
@@ -172,12 +171,12 @@ const UI = (() => {
 
   async function sendLoginCode() {
     setFormNotice('loginFormNotice', '');
-    const phone = document.getElementById('loginPhone').value.trim();
-    if (!phone) return showAuthError('login', '请先填写手机号');
+    const email = document.getElementById('loginEmail').value.trim();
+    if (!email) return showAuthError('login', '请先填写邮箱地址');
     const button = getCodeButton('login');
     setButtonDisabled(button, true);
     try {
-      await sendCode(phone, 'login');
+      await sendCode(email, 'login');
     } catch (err) {
       showVerificationError('login', err || '验证码发送失败，请稍后重试');
     } finally {
@@ -185,14 +184,14 @@ const UI = (() => {
     }
   }
 
-  async function sendCode(phone, purpose) {
+  async function sendCode(email, purpose) {
     try {
-      const result = await APP.sendVerificationCode(phone, purpose);
+      const result = await APP.sendVerificationCode(email, purpose);
       setFormNotice(purpose === 'register' ? 'registerFormNotice' : 'loginFormNotice', result.mockCode ? `测试验证码：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
       toast(result.mockCode ? `验证码已生成：${result.mockCode}` : '验证码已发送，请注意查收', 'success');
     } catch (err) {
-      if (purpose === 'register' && (err?.code === 'PHONE_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册'))) {
-        switchRegisteredPhoneToLogin(phone);
+      if (purpose === 'register' && (err?.code === 'EMAIL_ALREADY_REGISTERED' || String(err?.message || '').includes('已注册'))) {
+        switchRegisteredEmailToLogin(email);
         return;
       }
       showVerificationError(purpose, err || '验证码发送失败，请稍后重试');
@@ -202,8 +201,8 @@ const UI = (() => {
   function showAuthError(scope, message) {
     const text = normalizeUserMessage(message);
     if (scope === 'register' && text.includes('已注册')) {
-      const phone = document.getElementById('regPhone')?.value.trim() || '';
-      switchRegisteredPhoneToLogin(phone);
+      const email = document.getElementById('regEmail')?.value.trim() || '';
+      switchRegisteredEmailToLogin(email);
       return;
     }
     if (isVerificationMessage(message, text)) {
@@ -223,15 +222,15 @@ const UI = (() => {
     toast(text, 'error', 5200);
   }
 
-  function switchRegisteredPhoneToLogin(phone) {
+  function switchRegisteredEmailToLogin(email) {
     hideModal('modalRegister');
-    const loginPhone = document.getElementById('loginPhone');
+    const loginEmail = document.getElementById('loginEmail');
     const loginCode = document.getElementById('loginCode');
-    if (loginPhone) loginPhone.value = phone;
+    if (loginEmail) loginEmail.value = email;
     if (loginCode) loginCode.value = '';
-    setFormNotice('registerPhoneNotice', '');
+    setFormNotice('registerEmailNotice', '');
     setFormNotice('registerFormNotice', '');
-    setFormNotice('loginFormNotice', '该手机号已注册，请直接登录。已为你切换到登录界面。', 'success');
+    setFormNotice('loginFormNotice', '该邮箱已注册，请直接登录。已为你切换到登录界面。', 'success');
     showModal('modalLogin');
   }
 
@@ -245,8 +244,8 @@ const UI = (() => {
     button.disabled = disabled;
   }
 
-  function clearRegisterPhoneNotice() {
-    setFormNotice('registerPhoneNotice', '');
+  function clearRegisterEmailNotice() {
+    setFormNotice('registerEmailNotice', '');
     setFormNotice('registerFormNotice', '');
     clearFieldHighlight('regCode');
   }
@@ -304,7 +303,7 @@ const UI = (() => {
     if (code === 'VERIFICATION_CODE_RATE_LIMITED' || text.includes('发送过于频繁') || text.includes('发送次数过多')) return '验证码发送过于频繁，请稍后再试';
     if (code === 'VERIFICATION_CODE_INVALID' || text.includes('验证码错误')) return '验证码错误，请重试';
     if (code === 'VERIFICATION_CODE_EXPIRED' || code === 'VERIFICATION_CODE_LOCKED' || text.includes('已过期')) return '验证码已过期，请重新获取';
-    if (text.includes('已注册')) return '该手机号或邮箱已注册，请直接登录';
+    if (text.includes('已注册')) return '该邮箱已注册，请直接登录';
     return text || '操作失败，请稍后重试';
   }
 
@@ -314,7 +313,8 @@ const UI = (() => {
       || normalizedText.includes('验证码发送过于频繁')
       || normalizedText.includes('验证码错误')
       || normalizedText.includes('验证码已过期')
-      || normalizedText.includes('请先获取短信验证码');
+      || normalizedText.includes('请先获取验证码')
+      || normalizedText.includes('请先获取邮箱验证码');
   }
 
   // ---- Questionnaire ----
@@ -334,6 +334,7 @@ const UI = (() => {
 
   function renderQStep() {
     const steps = APP.getQuestionnaireSteps(qState.reportType);
+    normalizeCurrentQuestionnaireStep(1);
     const step = steps[qState.currentStep];
     const total = steps.length;
     const pct = Math.round(((qState.currentStep) / total) * 100);
@@ -369,9 +370,10 @@ const UI = (() => {
     initConditionals();
 
     // Nav buttons
+    const hasNextVisibleStep = findVisibleStep(qState.currentStep + 1, 1) >= 0;
     document.getElementById('qBtnPrev').style.display = qState.currentStep === 0 ? 'none' : 'flex';
     document.getElementById('qBtnNext').textContent =
-      qState.currentStep === total - 1 ? '生成报告 →' : '下一步 →';
+      hasNextVisibleStep ? '下一步 →' : '生成报告 →';
   }
 
   function buildFieldEl(field) {
@@ -379,9 +381,13 @@ const UI = (() => {
     wrapper.className = 'q-card';
     // 条件显现：初始状态处理
     if (field.showIf) {
-      wrapper.dataset.showIfField = field.showIf.field;
-      if (field.showIf.value) wrapper.dataset.showIfValue = field.showIf.value;
-      if (field.showIf.includes) wrapper.dataset.showIfIncludes = field.showIf.includes;
+      if (Array.isArray(field.showIf.any)) {
+        wrapper.dataset.showIfAny = JSON.stringify(field.showIf.any);
+      } else {
+        wrapper.dataset.showIfField = field.showIf.field;
+        if (field.showIf.value) wrapper.dataset.showIfValue = field.showIf.value;
+        if (field.showIf.includes) wrapper.dataset.showIfIncludes = field.showIf.includes;
+      }
       wrapper.style.display = 'none'; // 初始隐藏，等 evalConditionals 处理
     }
 
@@ -488,31 +494,84 @@ const UI = (() => {
   function evalConditionals(changedFieldId, newValue) {
     const container = document.getElementById('qFieldsContainer');
     if (!container) return;
-    container.querySelectorAll('[data-show-if-field]').forEach(el => {
-      const targetField = el.dataset.showIfField;
-      if (targetField !== changedFieldId) return;
-      const requiredValue = el.dataset.showIfValue;
-      const requiredIncludes = el.dataset.showIfIncludes;
+    const values = getAllQuestionnaireValues();
+    if (changedFieldId) values[changedFieldId] = newValue;
+
+    container.querySelectorAll('[data-show-if-field], [data-show-if-any]').forEach(el => {
       let shouldShow = false;
-      if (requiredValue) {
-        shouldShow = (newValue === requiredValue);
-      } else if (requiredIncludes) {
-        shouldShow = Array.isArray(newValue)
-          ? newValue.includes(requiredIncludes)
-          : newValue === requiredIncludes;
+      if (el.dataset.showIfAny) {
+        try {
+          shouldShow = JSON.parse(el.dataset.showIfAny).some(condition => conditionMatches(condition, values));
+        } catch (_) {
+          shouldShow = false;
+        }
+      } else {
+        shouldShow = conditionMatches({
+          field: el.dataset.showIfField,
+          value: el.dataset.showIfValue,
+          includes: el.dataset.showIfIncludes,
+        }, values);
       }
       el.style.display = shouldShow ? '' : 'none';
     });
   }
 
+  function conditionMatches(condition, values) {
+    if (!condition || !condition.field) return false;
+    const actual = values[condition.field];
+    if (condition.value !== undefined) return actual === condition.value;
+    if (condition.includes !== undefined) {
+      return Array.isArray(actual)
+        ? actual.includes(condition.includes)
+        : actual === condition.includes;
+    }
+    return Boolean(actual);
+  }
+
+  function getAllQuestionnaireValues() {
+    const values = {};
+    Object.values(qState.data || {}).forEach(stepData => {
+      Object.assign(values, stepData || {});
+    });
+    return values;
+  }
+
+  function fieldShouldShow(field, values = getAllQuestionnaireValues()) {
+    if (!field.showIf) return true;
+    if (Array.isArray(field.showIf.any)) {
+      return field.showIf.any.some(condition => conditionMatches(condition, values));
+    }
+    return conditionMatches(field.showIf, values);
+  }
+
+  function stepHasVisibleFields(step) {
+    if (!step || !Array.isArray(step.fields)) return false;
+    return step.fields.some(field => fieldShouldShow(field));
+  }
+
+  function normalizeCurrentQuestionnaireStep(direction = 1) {
+    const steps = APP.getQuestionnaireSteps(qState.reportType);
+    if (stepHasVisibleFields(steps[qState.currentStep])) return;
+    const next = findVisibleStep(qState.currentStep + (direction >= 0 ? 1 : -1), direction);
+    if (next >= 0) {
+      qState.currentStep = next;
+      return;
+    }
+    const fallback = findVisibleStep(qState.currentStep - (direction >= 0 ? 1 : -1), -direction);
+    qState.currentStep = fallback >= 0 ? fallback : 0;
+  }
+
+  function findVisibleStep(startIndex, direction = 1) {
+    const steps = APP.getQuestionnaireSteps(qState.reportType);
+    for (let i = startIndex; i >= 0 && i < steps.length; i += direction >= 0 ? 1 : -1) {
+      if (stepHasVisibleFields(steps[i])) return i;
+    }
+    return -1;
+  }
+
   // 根据已保存数据初始化当前步骤的条件显现状态
   function initConditionals() {
-    const steps = APP.getQuestionnaireSteps(qState.reportType);
-    const stepId = steps[qState.currentStep].id;
-    const saved = qState.data[stepId] || {};
-    Object.entries(saved).forEach(([fieldId, value]) => {
-      evalConditionals(fieldId, value);
-    });
+    evalConditionals();
   }
 
   function saveFieldData(fieldId, value) {
@@ -562,8 +621,9 @@ const UI = (() => {
     const steps = APP.getQuestionnaireSteps(qState.reportType);
     const total = steps.length;
 
-    if (qState.currentStep < total - 1) {
-      qState.currentStep++;
+    const nextStep = findVisibleStep(qState.currentStep + 1, 1);
+    if (nextStep >= 0) {
+      qState.currentStep = nextStep;
       renderQStep();
       scrollQuestionnaireTop();
     } else {
@@ -601,7 +661,9 @@ const UI = (() => {
 
   function qPrev() {
     if (qState.currentStep > 0) {
-      qState.currentStep--;
+      const prevStep = findVisibleStep(qState.currentStep - 1, -1);
+      if (prevStep < 0) return;
+      qState.currentStep = prevStep;
       renderQStep();
       scrollQuestionnaireTop();
     }
@@ -759,6 +821,8 @@ const UI = (() => {
       renderGenericReport(body, data, report);
     }
 
+    body.insertAdjacentHTML('beforeend', ReportCTAFooter());
+
     // Find voucher for this report
     const voucher = APP.state.vouchers.find(v => v.reportId === reportId);
     if (voucher) {
@@ -773,6 +837,61 @@ const UI = (() => {
 
   function renderGenericReport(body, data, report) {
     body.innerHTML = buildGenericReportHtml(data, report).join('');
+  }
+
+  function ReportCTAFooter() {
+    return `
+      <section class="report-cta-footer" aria-label="免费报告解读与升学咨询">
+        <div class="report-cta-footer-main">
+          <div class="report-cta-kicker">免费解读 / 升学咨询</div>
+          <h2 class="report-cta-title">下一步：获取你的专属升学策略解读</h2>
+          <p class="report-cta-desc">
+            报告已经帮你完成了初步诊断。你可以添加顾问微信，免费获得一次报告重点解读，进一步确认适合的国家、院校层级、专业方向与补强优先级。
+          </p>
+        </div>
+        <div class="report-cta-action">
+          <div class="report-cta-wechat">
+            <span class="report-cta-label">顾问微信</span>
+            <strong id="reportCTAWechat">alex1212300</strong>
+          </div>
+          <button class="btn btn-gold report-cta-copy" type="button" onclick="UI.copyReportCTAWechat()">复制微信号</button>
+          <div id="reportCTACopyHint" class="report-cta-hint" aria-live="polite"></div>
+        </div>
+      </section>
+    `;
+  }
+
+  async function copyReportCTAWechat() {
+    const wechat = 'alex1212300';
+    const hint = document.getElementById('reportCTACopyHint');
+    const setHint = (text, type = 'success') => {
+      if (!hint) return;
+      hint.textContent = text;
+      hint.className = `report-cta-hint ${type}`;
+    };
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(wechat);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = wechat;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (!copied) throw new Error('copy fallback failed');
+      }
+      setHint('已复制微信号，可直接去微信添加。');
+      toast('微信号已复制：alex1212300', 'success');
+    } catch (_) {
+      setHint('复制失败，请手动复制微信号：alex1212300', 'error');
+      toast('复制失败，请手动复制微信号 alex1212300', 'warning', 5000);
+    }
   }
 
   function buildGenericReportHtml(data = {}, report = {}) {
@@ -2240,11 +2359,12 @@ const UI = (() => {
     redeemHomeCode,
     redeemCode,
     redeemCodeAndRetryReport,
+    copyReportCTAWechat,
     goBuyEntitlement,
     viewReport,
     goToMiniProgram,
     claimLizhihuiVoucher,
     switchAuthorityTab,
-    clearRegisterPhoneNotice,
+    clearRegisterEmailNotice,
   };
 })();

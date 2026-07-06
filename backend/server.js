@@ -14,6 +14,7 @@ const DASHSCOPE_API_BASE = process.env.DASHSCOPE_BASE_URL || process.env.DASHSCO
 const DASHSCOPE_MODEL = process.env.LLM_MODEL || process.env.DASHSCOPE_MODEL || 'qwen-plus';
 const LIZHIHUI_CLIENT_SECRET = process.env.LIZHIHUI_SIGNING_SECRET || process.env.LIZHIHUI_CLIENT_SECRET || '';
 const SMS_PROVIDER = process.env.SMS_PROVIDER || 'mock';
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'mock';
 
 let pool;
 
@@ -53,6 +54,7 @@ async function route(req, res) {
     if (routeKey === 'GET /api/health') return sendJson(res, 200, { ok: true, service: 'gpn-backend', db: 'mysql' });
 
     if (routeKey === 'POST /api/v1/auth/check-phone') return checkPhoneRegistered(res, await readJson(req));
+    if (routeKey === 'POST /api/v1/auth/check-email') return checkEmailRegistered(res, await readJson(req));
     if (routeKey === 'POST /api/v1/auth/send-code') return sendVerificationCode(req, res, await readJson(req));
     if (routeKey === 'POST /api/v1/auth/verify-code') return verifyCodeOnly(res, await readJson(req));
     if (routeKey === 'POST /api/v1/auth/register') return registerUser(res, await readJson(req));
@@ -102,17 +104,24 @@ async function checkPhoneRegistered(res, body) {
   return sendJson(res, 200, { registered: Boolean(existing) });
 }
 
+async function checkEmailRegistered(res, body) {
+  const email = normalizeEmail(body.email);
+  if (!email) throw httpError(400, '请输入邮箱地址');
+  const existing = await getOne('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+  return sendJson(res, 200, { registered: Boolean(existing) });
+}
+
 async function sendVerificationCode(req, res, body) {
-  const phone = normalizePhone(body.phone);
+  const email = normalizeEmail(body.email);
   const purpose = normalizeVerificationPurpose(body.purpose || 'login');
-  if (!phone) throw httpError(400, '请输入手机号');
+  if (!email) throw httpError(400, '请输入邮箱地址');
 
   if (purpose === 'register') {
-    const existing = await getOne('SELECT id FROM users WHERE phone = ? LIMIT 1', [phone]);
-    if (existing) throw httpError(409, '该手机号已注册，请直接登录', 'PHONE_ALREADY_REGISTERED');
+    const existing = await getOne('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    if (existing) throw httpError(409, '该邮箱已注册，请直接登录', 'EMAIL_ALREADY_REGISTERED');
   }
 
-  await enforceVerificationRateLimit(phone, purpose);
+  await enforceVerificationRateLimit(email, purpose);
 
   const code = String(crypto.randomInt(100000, 1000000));
   const codeHash = hmac(JWT_SECRET, code);
@@ -120,14 +129,14 @@ async function sendVerificationCode(req, res, body) {
 
   await execute(
     `INSERT INTO user_verification_codes
-     (id, phone, purpose, code_hash, provider, status, expires_at, max_attempts, ip_address, user_agent)
+     (id, email, purpose, code_hash, provider, status, expires_at, max_attempts, ip_address, user_agent)
      VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), ?, ?, ?)`,
     [
       verificationId,
-      phone,
+      email,
       purpose,
       codeHash,
-      SMS_PROVIDER,
+      EMAIL_PROVIDER,
       'sent',
       5,
       req.headers['x-forwarded-for'] || req.socket.remoteAddress || null,
@@ -135,45 +144,45 @@ async function sendVerificationCode(req, res, body) {
     ]
   );
 
-  const smsResult = await sendSmsCode(phone, code, purpose);
+  const emailResult = await sendEmailCode(email, code, purpose);
   await execute(
     'UPDATE user_verification_codes SET send_result_json = ? WHERE id = ?',
-    [JSON.stringify(smsResult), verificationId]
+    [JSON.stringify(emailResult), verificationId]
   );
 
   return sendJson(res, 200, {
     success: true,
     verificationId,
     expiresIn: 600,
-    provider: SMS_PROVIDER,
-    ...(smsResult.mockCode ? { mockCode: smsResult.mockCode } : {}),
+    provider: EMAIL_PROVIDER,
+    ...(emailResult.mockCode ? { mockCode: emailResult.mockCode } : {}),
   });
 }
 
 async function verifyCodeOnly(res, body) {
-  const phone = normalizePhone(body.phone);
+  const email = normalizeEmail(body.email);
   const purpose = normalizeVerificationPurpose(body.purpose || 'login');
   const code = clean(body.code);
-  await verifySmsCode(phone, code, purpose);
+  await verifyEmailCode(email, code, purpose);
   return sendJson(res, 200, { success: true });
 }
 
 async function registerUser(res, body) {
   const name = clean(body.name);
-  const email = clean(body.email).toLowerCase() || null;
-  const phone = normalizePhone(body.phone);
+  const email = normalizeEmail(body.email);
+  const phone = normalizePhone(body.phone) || null;
   const password = String(body.password || '');
   const verificationCode = clean(body.verificationCode || body.code || body.smsCode);
-  if (!name || !phone || !verificationCode) {
-    throw httpError(400, '请填写姓名、手机号和短信验证码');
+  if (!name || !email || !verificationCode) {
+    throw httpError(400, '请填写姓名、邮箱和邮箱验证码');
   }
   if (password && password.length < 6) {
     throw httpError(400, '密码至少需要 6 位');
   }
 
-  const existing = await getOne('SELECT id FROM users WHERE phone = ? OR (email IS NOT NULL AND email = ?) LIMIT 1', [phone, email]);
-  if (existing) throw httpError(409, '该手机号或邮箱已注册，请直接登录');
-  await verifySmsCode(phone, verificationCode, 'register');
+  const existing = await getOne('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+  if (existing) throw httpError(409, '该邮箱已注册，请直接登录', 'EMAIL_ALREADY_REGISTERED');
+  await verifyEmailCode(email, verificationCode, 'register');
 
   const user = {
     id: id('user'),
@@ -189,7 +198,7 @@ async function registerUser(res, body) {
       'INSERT INTO users (id, name, email, phone, password_hash, status) VALUES (?, ?, ?, ?, ?, ?)',
       [user.id, user.name, user.email, user.phone, user.passwordHash, user.status]
     );
-    await claimPendingByPhone(conn, user.id, phone);
+    if (phone) await claimPendingByPhone(conn, user.id, phone);
     await audit(conn, user.id, 'user.register', { email, phone });
   });
 
@@ -197,13 +206,13 @@ async function registerUser(res, body) {
 }
 
 async function loginUser(res, body) {
-  const phone = normalizePhone(body.phone);
+  const email = normalizeEmail(body.email);
   const verificationCode = clean(body.verificationCode || body.code || body.smsCode);
-  if (phone && verificationCode) return loginWithSmsCode(res, phone, verificationCode);
+  if (email && verificationCode) return loginWithEmailCode(res, email, verificationCode);
 
-  const login = clean(body.email || body.phone).toLowerCase();
+  const login = normalizeEmail(body.email || body.phone);
   const password = String(body.password || '');
-  const user = await getOne('SELECT * FROM users WHERE email = ? OR phone = ? LIMIT 1', [login, login]);
+  const user = await getOne('SELECT * FROM users WHERE email = ? LIMIT 1', [login]);
   if (!user || !verifyPassword(password, user.password_hash)) throw httpError(401, '账号或密码错误，请重试');
 
   await transaction(async conn => {
@@ -214,14 +223,14 @@ async function loginUser(res, body) {
   return sendJson(res, 200, { user: await publicUserById(user.id), token: signToken(user.id) });
 }
 
-async function loginWithSmsCode(res, phone, verificationCode) {
-  await verifySmsCode(phone, verificationCode, 'login');
-  const user = await getOne('SELECT * FROM users WHERE phone = ? LIMIT 1', [phone]);
-  if (!user) throw httpError(404, '该手机号尚未注册，请先创建账户');
+async function loginWithEmailCode(res, email, verificationCode) {
+  await verifyEmailCode(email, verificationCode, 'login');
+  const user = await getOne('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
+  if (!user) throw httpError(404, '该邮箱尚未注册，请先创建账户');
 
   await transaction(async conn => {
-    await claimPendingByPhone(conn, user.id, phone);
-    await audit(conn, user.id, 'user.login.sms', { phone });
+    if (user.phone) await claimPendingByPhone(conn, user.id, user.phone);
+    await audit(conn, user.id, 'user.login.email_code', { email });
   });
 
   return sendJson(res, 200, { user: await publicUserById(user.id), token: signToken(user.id) });
@@ -1152,7 +1161,7 @@ async function initSchema() {
       id VARCHAR(64) PRIMARY KEY,
       name VARCHAR(120) NOT NULL,
       email VARCHAR(255) UNIQUE,
-      phone VARCHAR(32) NOT NULL UNIQUE,
+      phone VARCHAR(32) UNIQUE,
       password_hash VARCHAR(255),
       status VARCHAR(32) NOT NULL DEFAULT 'active',
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1160,7 +1169,8 @@ async function initSchema() {
     )`,
     `CREATE TABLE IF NOT EXISTS user_verification_codes (
       id VARCHAR(64) PRIMARY KEY,
-      phone VARCHAR(32) NOT NULL,
+      phone VARCHAR(32),
+      email VARCHAR(255),
       purpose VARCHAR(32) NOT NULL,
       code_hash VARCHAR(255) NOT NULL,
       provider VARCHAR(64) NOT NULL,
@@ -1175,6 +1185,7 @@ async function initSchema() {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_vcode_phone_purpose (phone, purpose, created_at),
+      INDEX idx_vcode_email_purpose (email, purpose, created_at),
       INDEX idx_vcode_status (status, expires_at)
     )`,
     `CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -1399,13 +1410,17 @@ async function initSchema() {
 async function runLightMigrations() {
   const migrations = [
     'ALTER TABLE users MODIFY email VARCHAR(255) NULL UNIQUE',
+    'ALTER TABLE users MODIFY phone VARCHAR(32) NULL UNIQUE',
     'ALTER TABLE users MODIFY password_hash VARCHAR(255) NULL',
+    'ALTER TABLE user_verification_codes MODIFY phone VARCHAR(32) NULL',
+    'ALTER TABLE user_verification_codes ADD COLUMN email VARCHAR(255) NULL AFTER phone',
+    'ALTER TABLE user_verification_codes ADD INDEX idx_vcode_email_purpose (email, purpose, created_at)',
   ];
   for (const statement of migrations) {
     try {
       await execute(statement);
     } catch (error) {
-      if (!['ER_DUP_KEYNAME', 'ER_MULTIPLE_PRI_KEY'].includes(error.code)) {
+      if (!['ER_DUP_KEYNAME', 'ER_DUP_FIELDNAME', 'ER_MULTIPLE_PRI_KEY'].includes(error.code)) {
         console.warn(`Skipped migration: ${statement}`, error.message);
       }
     }
@@ -1645,27 +1660,27 @@ async function getUserByPhoneConn(conn, phone) {
   return getOneForUpdate(conn, 'SELECT * FROM users WHERE phone = ? LIMIT 1', [phone]);
 }
 
-async function enforceVerificationRateLimit(phone, purpose) {
+async function enforceVerificationRateLimit(email, purpose) {
   const recent = await getOne(
     `SELECT created_at
      FROM user_verification_codes
-     WHERE phone = ? AND purpose = ? AND created_at > DATE_SUB(NOW(), INTERVAL 60 SECOND)
+     WHERE email = ? AND purpose = ? AND created_at > DATE_SUB(NOW(), INTERVAL 60 SECOND)
      ORDER BY created_at DESC LIMIT 1`,
-    [phone, purpose]
+    [email, purpose]
   );
   if (recent) throw httpError(429, '验证码发送过于频繁，请稍后再试', 'VERIFICATION_CODE_RATE_LIMITED');
 
   const hourly = await getOne(
     `SELECT COUNT(*) AS total
      FROM user_verification_codes
-     WHERE phone = ? AND purpose = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
-    [phone, purpose]
+     WHERE email = ? AND purpose = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
+    [email, purpose]
   );
   if (Number(hourly?.total || 0) >= 5) throw httpError(429, '验证码发送次数过多，请稍后再试', 'VERIFICATION_CODE_RATE_LIMITED');
 }
 
-async function verifySmsCode(phone, code, purpose) {
-  if (!phone || !code) throw httpError(400, '请输入手机号和验证码', 'VERIFICATION_CODE_REQUIRED');
+async function verifyEmailCode(email, code, purpose) {
+  if (!email || !code) throw httpError(400, '请输入邮箱和验证码', 'VERIFICATION_CODE_REQUIRED');
   const expectedHash = hmac(JWT_SECRET, code);
 
   return transaction(async conn => {
@@ -1673,11 +1688,11 @@ async function verifySmsCode(phone, code, purpose) {
       conn,
       `SELECT *
        FROM user_verification_codes
-       WHERE phone = ? AND purpose = ? AND status = "sent"
+       WHERE email = ? AND purpose = ? AND status = "sent"
        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-      [phone, purpose]
+      [email, purpose]
     );
-    if (!record) throw httpError(400, '请先获取短信验证码', 'VERIFICATION_CODE_REQUIRED');
+    if (!record) throw httpError(400, '请先获取邮箱验证码', 'VERIFICATION_CODE_REQUIRED');
     const fresh = await getOneForUpdate(conn, 'SELECT expires_at <= NOW() AS expired FROM user_verification_codes WHERE id = ? LIMIT 1', [record.id]);
     if (Number(fresh?.expired || 0) === 1) {
       await conn.execute('UPDATE user_verification_codes SET status = "expired", updated_at = NOW() WHERE id = ?', [record.id]);
@@ -1692,26 +1707,59 @@ async function verifySmsCode(phone, code, purpose) {
       throw httpError(401, '验证码错误，请重试', 'VERIFICATION_CODE_INVALID');
     }
     await conn.execute('UPDATE user_verification_codes SET status = "verified", verified_at = NOW(), updated_at = NOW() WHERE id = ?', [record.id]);
-    await audit(conn, null, 'sms.verify', { phone, purpose, verificationId: record.id });
+    await audit(conn, null, 'email.verify', { email, purpose, verificationId: record.id });
     return record;
   });
 }
 
-async function sendSmsCode(phone, code, purpose) {
-  if (SMS_PROVIDER === 'mock' || SMS_PROVIDER === 'development') {
-    console.log(`[SMS mock] purpose=${purpose} phone=${phone} code=${code}`);
-    return { provider: SMS_PROVIDER, status: 'mock_sent', mockCode: code };
+async function sendEmailCode(email, code, purpose) {
+  if (EMAIL_PROVIDER === 'mock' || EMAIL_PROVIDER === 'development') {
+    console.log(`[Email mock] purpose=${purpose} email=${email} code=${code}`);
+    return { provider: EMAIL_PROVIDER, status: 'mock_sent', mockCode: code };
   }
 
-  if (SMS_PROVIDER === 'aliyun') {
-    return sendAliyunSmsCode(phone, code);
+  if (EMAIL_PROVIDER === 'smtp') {
+    return sendSmtpEmailCode(email, code, purpose);
   }
 
-  throw httpError(500, `Unsupported SMS_PROVIDER: ${SMS_PROVIDER}`);
+  throw httpError(500, `Unsupported EMAIL_PROVIDER: ${EMAIL_PROVIDER}`);
 }
 
-async function sendAliyunSmsCode() {
-  throw httpError(501, '短信服务商尚未接入：请提供阿里云短信 AccessKey、签名名称、模板 Code 和模板变量格式');
+async function sendSmtpEmailCode(email, code, purpose) {
+  const required = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM'];
+  const missing = required.filter(key => !process.env[key]);
+  if (missing.length) throw httpError(500, `SMTP 邮件配置缺失：${missing.join(', ')}`);
+
+  let nodemailer;
+  try {
+    nodemailer = require('nodemailer');
+  } catch (_) {
+    throw httpError(500, '邮件依赖 nodemailer 尚未安装，请在 backend 目录执行 npm install');
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: String(process.env.SMTP_SECURE || 'true') !== 'false',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  });
+  const subject = purpose === 'register' ? '注册验证码' : '登录验证码';
+  const info = await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: `Global Pathway Navigator ${subject}`,
+    text: `您的验证码是：${code}。验证码 10 分钟内有效，请勿转发给他人。`,
+    html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.7;color:#111827">
+      <h2 style="margin:0 0 12px">Global Pathway Navigator ${subject}</h2>
+      <p>您的验证码是：</p>
+      <div style="font-size:28px;font-weight:700;letter-spacing:4px;color:#2454a0">${code}</div>
+      <p style="color:#6b7280">验证码 10 分钟内有效，请勿转发给他人。</p>
+    </div>`,
+  });
+  return { provider: EMAIL_PROVIDER, status: 'sent', messageId: info.messageId };
 }
 
 function normalizeVerificationPurpose(value) {
@@ -1753,6 +1801,12 @@ function clean(value) {
 
 function normalizePhone(value) {
   return String(value || '').replace(/[^\d+]/g, '').trim();
+}
+
+function normalizeEmail(value) {
+  const email = clean(value).toLowerCase();
+  if (!email) return '';
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 }
 
 function now() {
