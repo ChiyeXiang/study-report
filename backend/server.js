@@ -638,8 +638,18 @@ async function lizhihuiGetReportTask(req, res, url) {
       createdAt: order.created_at,
       updatedAt: order.updated_at,
     },
-    report,
+    report: sanitizePartnerReport(report),
   });
+}
+
+function sanitizePartnerReport(report) {
+  if (!report) return null;
+  const reportData = report.reportData && typeof report.reportData === 'object' ? { ...report.reportData } : null;
+  if (reportData) delete reportData.raw;
+  return {
+    ...report,
+    reportData,
+  };
 }
 
 function queueLizhihuiReportTask(jobId) {
@@ -806,28 +816,18 @@ async function callModelJson(systemPrompt, userPrompt) {
 
 function buildPrompt(reportType, answers) {
   const typeName = getReportTitle(reportType);
-  const competitivenessSchema = reportType === 'competitiveness'
-    ? [
-      '如果 reportType 是 competitiveness，JSON 还必须包含以下字段：',
-      'overallScore: 0-100 数字。',
-      'scoringDimensions: 对象，必须包含 academics, testScores, majorFit, backgroundDepth, highVisibility, narrativeMaturity 六个 0-100 数字。',
-      'schoolRecommendations: 对象，必须包含 reach 和 match 两个数组；reach 至少 3 个学校，match 至少 3 个学校。每个学校包含 name, country, qsRank, usNewsRank, rankingSource, rankingValue, matchScore, note。',
-      '院校排名字段要求：尽量给出该学校最新 QS 世界大学排名与 US News Best Global Universities 排名；rankingSource/rankingValue 必须取两者中更靠前的排名（数字更小者），rankingSource 只允许 QS 或 USNEWS。',
-      'keyGaps: 数组，至少 3 项，每项包含 level, title, desc。',
-      'targetMajorRisk: 数组，至少 3 项，每项包含 major, risk, note。',
-      'recommendations: 数组，至少 3 项，每项包含 title, desc。',
-      'conclusion: 字符串。',
-      '不得省略上述数组，不知道具体学校时也要基于用户目标国家、专业和背景给出合理候选。',
-    ].join('\n')
-    : '';
+  const reportSchema = getReportSpecificPromptSchema(reportType);
   return {
     system: [
       '你是一个严谨的教育规划报告生成引擎。',
       '你必须只输出 JSON，不输出 Markdown。',
       'JSON 必须包含 summary, sections, chartData, recommendations, risks, nextSteps 字段。',
       'sections 是数组，每项包含 title 和 content。',
-      'chartData 必须适合前端图表渲染，包含至少一个 scores 对象。',
-      competitivenessSchema,
+      'chartData 必须包含 scores 对象。不要把 scores 输出成数组、字符串或嵌套多种结构。',
+      '如果输出 chartData.timeline，必须是数组，每项包含 phase, period, title, items。',
+      '如果输出 chartData.trends，必须是数组，每项包含 key, label, points；points 每项包含 label 和 value。',
+      '不要输出 chartData.trend 字符串，也不要把同一个字段输出成多种结构。',
+      reportSchema,
     ].join('\n'),
     user: JSON.stringify({
       reportType,
@@ -839,20 +839,59 @@ function buildPrompt(reportType, answers) {
   };
 }
 
+function getReportSpecificPromptSchema(reportType) {
+  if (reportType === 'competitiveness') {
+    return [
+      'competitiveness 报告还必须包含以下字段：',
+      'overallScore: 0-100 数字。',
+      'scoringDimensions: 对象，必须包含 academics, testScores, majorFit, backgroundDepth, highVisibility, narrativeMaturity 六个 0-100 数字。',
+      'chartData.scores 必须包含 academics, testScores, majorFit, backgroundDepth, highVisibility, narrativeMaturity 六个 0-100 数字。',
+      'schoolRecommendations: 对象，必须包含 reach 和 match 两个数组；reach 至少 3 个学校，match 至少 3 个学校。每个学校包含 name, country, qsRank, usNewsRank, rankingSource, rankingValue, matchScore, note。',
+      '院校排名字段要求：尽量给出该学校最新 QS 世界大学排名与 US News Best Global Universities 排名；rankingSource/rankingValue 必须取两者中更靠前的排名（数字更小者），rankingSource 只允许 QS 或 USNEWS。',
+      'keyGaps: 数组，至少 3 项，每项包含 level, title, desc。',
+      'targetMajorRisk: 数组，至少 3 项，每项包含 major, risk, note。',
+      'recommendations: 数组，至少 3 项，每项包含 title, desc。',
+      'conclusion: 字符串。',
+      '不得省略上述数组，不知道具体学校时也要基于用户目标国家、专业和背景给出合理候选。',
+    ].join('\n');
+  }
+  if (reportType === 'family') {
+    return [
+      'family 报告的 chartData.scores 必须只包含以下五个 0-100 数字：',
+      'experienceDepth, familyAlignment, directionClarity, internationalFit, academicPotential。',
+      '如果输出 chartData.timeline，必须是数组，每项结构固定为 { phase: 字符串, period: 字符串, title: 字符串, items: 字符串数组 }。',
+      '不要输出 chartData.trend 字符串；如果没有趋势图数据，不要输出 trends。',
+    ].join('\n');
+  }
+  if (reportType === 'career') {
+    return [
+      'career 报告的 chartData.scores 必须只包含以下六个 0-100 数字：',
+      'technical_depth, project_delivery, industry_knowledge, communication_clarity, practical_application, career_direction_clarity。',
+      '如果输出 chartData.timeline，必须是数组，每项结构固定为 { phase: 字符串, period: 字符串, title: 字符串, items: 字符串数组 }。',
+      '如果输出 chartData.trends，必须是数组，每项结构固定为 { key: 字符串, label: 字符串, points: [{ label: 字符串, value: 0-100 数字 }] }。',
+    ].join('\n');
+  }
+  return '';
+}
+
 function normalizeReportResult(reportType, result, answers = {}) {
+  const rawChartData = result.chartData || result.scoringDimensions || {};
   const base = {
     ...result,
     reportType,
     summary: result.summary || result.reportSummary || '报告已生成。',
     sections: Array.isArray(result.sections) ? result.sections : [],
-    chartData: result.chartData || result.scoringDimensions || {},
+    chartData: rawChartData,
     recommendations: result.recommendations || result.nextSteps || [],
     risks: result.risks || [],
     nextSteps: result.nextSteps || [],
     raw: result,
   };
   if (reportType === 'competitiveness') return normalizeCompetitivenessResult(base, answers);
-  return base;
+  return {
+    ...base,
+    chartData: normalizeChartData(reportType, rawChartData, result),
+  };
 }
 
 function normalizeCompetitivenessResult(result, answers = {}) {
@@ -879,12 +918,7 @@ function normalizeCompetitivenessResult(result, answers = {}) {
     ...result,
     overallScore: toScore(result.overallScore || chartData.overallScore || chartData.score, inferredScore),
     scoringDimensions,
-    chartData: {
-      ...chartData,
-      overallScore: toScore(result.overallScore || chartData.overallScore || chartData.score, inferredScore),
-      scoringDimensions,
-      scores: scoringDimensions,
-    },
+    chartData: normalizeChartData('competitiveness', { ...chartData, scoringDimensions, scores: scoringDimensions }, result),
     reportSummary: result.reportSummary || result.summary || sections[0]?.content || '报告已生成。',
     summary: result.summary || result.reportSummary || sections[0]?.content || '报告已生成。',
     schoolRecommendations,
@@ -903,6 +937,248 @@ function normalizeCompetitivenessResult(result, answers = {}) {
     },
     conclusion: result.conclusion || result.nextSteps?.map(item => item.step || item.title || item).filter(Boolean).join('；') || '',
   };
+}
+
+const CHART_SCORE_LABELS = {
+  academics: '学术基础',
+  testScores: '语言/标化竞争力',
+  majorFit: '专业匹配度',
+  backgroundDepth: '背景完整度',
+  highVisibility: '高辨识度成果',
+  narrativeMaturity: '申请叙事成熟度',
+  experienceDepth: '经历深度',
+  familyAlignment: '家庭目标一致性',
+  directionClarity: '方向清晰度',
+  internationalFit: '国际化适配度',
+  academicPotential: '学术潜力',
+  technical_depth: '技术深度',
+  project_delivery: '项目交付能力',
+  industry_knowledge: '行业认知',
+  communication_clarity: '沟通表达清晰度',
+  practical_application: '实践应用能力',
+  career_direction_clarity: '职业方向清晰度',
+};
+
+const REPORT_CHART_SCORE_KEYS = {
+  competitiveness: ['academics', 'testScores', 'majorFit', 'backgroundDepth', 'highVisibility', 'narrativeMaturity'],
+  family: ['experienceDepth', 'familyAlignment', 'directionClarity', 'internationalFit', 'academicPotential'],
+  career: ['technical_depth', 'project_delivery', 'industry_knowledge', 'communication_clarity', 'practical_application', 'career_direction_clarity'],
+};
+
+const CHART_SCORE_ALIASES = {
+  academics: ['academics', 'academic', 'academicStrength', '学术基础'],
+  testScores: ['testScores', 'languageScores', 'standardizedTests', '语言标化', '标化成绩', '语言/标化竞争力'],
+  majorFit: ['majorFit', 'fit', 'programFit', '专业匹配度'],
+  backgroundDepth: ['backgroundDepth', 'activities', 'extracurriculars', 'experienceDepth', '背景深度', '背景完整度'],
+  highVisibility: ['highVisibility', 'researchInnovation', '辨识度', '高辨识度成果'],
+  narrativeMaturity: ['narrativeMaturity', 'applicationStrategy', 'story', '申请叙事', '申请叙事成熟度'],
+  experienceDepth: ['experienceDepth', 'experience', 'experienceQuality', 'activityDepth', 'readingHabit', 'readingInterest', '经历深度'],
+  familyAlignment: ['familyAlignment', 'familyEngagement', 'parentalSupport', 'familyFitScore', 'alignment', '家庭目标一致性'],
+  directionClarity: ['directionClarity', 'goalClarity', 'pathClarity', 'interestAlignment', 'targetConfidence', '方向清晰度'],
+  internationalFit: ['internationalFit', 'globalMindset', 'globalFit', 'overseasFit', 'languageReadiness', '国际化适配度'],
+  academicPotential: ['academicPotential', 'academicReadiness', 'academicEngagement', 'confidence', '学术潜力'],
+  technical_depth: ['technical_depth', 'technicalDepth', 'technicalReadiness', 'skillReadiness', '技术深度'],
+  project_delivery: ['project_delivery', 'projectDelivery', 'execution', 'projectExecution', 'resourceAccess', '项目交付能力'],
+  industry_knowledge: ['industry_knowledge', 'industryKnowledge', 'industryNetwork', 'businessAcumen', '行业认知'],
+  communication_clarity: ['communication_clarity', 'communicationClarity', 'communicationPower', 'communication', 'expression', 'social', '沟通表达清晰度'],
+  practical_application: ['practical_application', 'practicalApplication', 'practiceExperience', 'practiceOrientation', 'application', '实践应用能力'],
+  career_direction_clarity: ['career_direction_clarity', 'careerDirectionClarity', 'careerClarity', 'directionClarity', 'pathClarity', '职业方向清晰度'],
+};
+
+function normalizeChartData(reportType, chartData, result = {}) {
+  const source = chartData && typeof chartData === 'object' && !Array.isArray(chartData) ? chartData : {};
+  const scoreSource = collectChartScores(source, result);
+  const scoreMap = reportType === 'competitiveness'
+    ? normalizeScoreObject(result.scoringDimensions || source.scoringDimensions || scoreSource)
+    : normalizeCanonicalChartScoreMap(reportType, scoreSource);
+
+  return {
+    version: '1.0',
+    scores: normalizeChartScoreCards(reportType, scoreMap),
+    timeline: normalizeChartTimeline(source, result),
+    trends: normalizeChartTrends(source, result),
+  };
+}
+
+function collectChartScores(chartData, result = {}) {
+  const collected = {};
+  addScoresToMap(collected, result.scoringDimensions);
+  addScoresToMap(collected, result.scores);
+  addScoresToMap(collected, chartData.scoringDimensions);
+  addScoresToMap(collected, chartData.scores, chartData.labels);
+  addScoresToMap(collected, chartData.scoreMap);
+  return collected;
+}
+
+function addScoresToMap(target, value, labels = []) {
+  if (!value) return;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      if (typeof item === 'number' || typeof item === 'string') {
+        const key = labels[index];
+        if (key) target[key] = item;
+        return;
+      }
+      if (!item || typeof item !== 'object') return;
+      const key = clean(item.key || item.name || item.label || labels[index]);
+      const score = item.value ?? item.score ?? item.percent ?? item.rate;
+      if (key && score !== undefined) target[key] = score;
+    });
+    return;
+  }
+  if (typeof value === 'object') {
+    Object.entries(value).forEach(([key, score]) => {
+      if (score !== undefined && score !== null && typeof score !== 'object') target[key] = score;
+    });
+  }
+}
+
+function normalizeCanonicalChartScoreMap(reportType, source) {
+  const keys = REPORT_CHART_SCORE_KEYS[reportType] || [];
+  const numbers = Object.values(source || {}).map(Number).filter(Number.isFinite);
+  const average = numbers.length ? Math.round(numbers.reduce((sum, value) => sum + value, 0) / numbers.length) : 60;
+  const normalized = {};
+  keys.forEach(key => {
+    const aliases = CHART_SCORE_ALIASES[key] || [key];
+    const found = aliases.map(alias => source?.[alias]).find(value => value !== undefined && value !== null);
+    normalized[key] = toScore(found, average);
+  });
+  return normalized;
+}
+
+function normalizeChartScoreCards(reportType, scoreMap) {
+  const keys = REPORT_CHART_SCORE_KEYS[reportType] || Object.keys(scoreMap || {});
+  return keys.map(key => ({
+    key,
+    label: CHART_SCORE_LABELS[key] || key,
+    value: toScore(scoreMap?.[key], 0),
+    max: 100,
+  }));
+}
+
+function normalizeChartTimeline(chartData, result = {}) {
+  const source = pickFirstArray(chartData.timeline, chartData.timelines, result.timeline);
+  const fallback = !source && isTimelineLikeArray(chartData.trend) ? chartData.trend : source;
+  if (!Array.isArray(fallback)) return [];
+  return fallback
+    .filter(item => item !== undefined && item !== null)
+    .map((item, index) => normalizeTimelineItem(item, index))
+    .filter(Boolean);
+}
+
+function normalizeTimelineItem(item, index) {
+  if (typeof item === 'string' || typeof item === 'number') {
+    const text = clean(item);
+    return text ? { phase: text, period: '', title: text, items: [] } : null;
+  }
+  if (!item || typeof item !== 'object') return null;
+  const phase = clean(item.phase || item.stage || item.quarter || item.year || `阶段 ${index + 1}`);
+  const period = clean(item.period || item.duration || item.months || item.timeRange || item.time || '');
+  const title = clean(item.title || item.focus || item.milestone || phase);
+  const items = normalizeStringArray(
+    item.items || item.keyMilestones || item.milestones || item.actions || item.keyActions || item.tasks || item.nextSteps
+  );
+  if (!items.length && item.milestone) items.push(clean(item.milestone));
+  if (!items.length && item.expectedOutcome) items.push(clean(item.expectedOutcome));
+  return { phase, period, title, items };
+}
+
+function normalizeChartTrends(chartData, result = {}) {
+  const source = chartData.trends || chartData.trend || chartData.projections || result.trends || result.trend;
+  if (!source || isTimelineLikeArray(source)) return [];
+  if (Array.isArray(source)) return normalizeTrendArray(source);
+  if (typeof source === 'object') return normalizeTrendObject(source);
+  return [];
+}
+
+function normalizeTrendArray(source) {
+  if (!source.length) return [];
+  if (source.some(item => item && typeof item === 'object' && Array.isArray(item.points))) {
+    return source.map((item, index) => normalizeTrendSeries(item, index)).filter(Boolean);
+  }
+  if (source.every(item => typeof item === 'number' || typeof item === 'string')) {
+    const numericValues = source.map(Number);
+    if (!numericValues.every(value => Number.isFinite(value) && value >= 0 && value <= 100)) return [];
+    return [{
+      key: 'trend',
+      label: '趋势',
+      points: numericValues.map((value, index) => ({ label: String(index + 1), value: toScore(value, 0) })),
+    }];
+  }
+  const rows = source.filter(item => item && typeof item === 'object');
+  if (!rows.length) return [];
+  const metaKeys = new Set(['label', 'name', 'year', 'quarter', 'phase', 'period', 'duration', 'date', 'time', 'title', 'milestone']);
+  const metricKeys = Array.from(new Set(rows.flatMap(row => Object.keys(row).filter(key => !metaKeys.has(key) && Number.isFinite(Number(row[key]))))));
+  if (!metricKeys.length && rows.some(row => Number.isFinite(Number(row.score)))) metricKeys.push('score');
+  return metricKeys.map(key => ({
+    key,
+    label: CHART_SCORE_LABELS[key] || (key === 'score' ? '趋势评分' : key),
+    points: rows.map((row, index) => ({
+      label: clean(row.label || row.year || row.quarter || row.phase || row.period || row.date || row.time || row.title || `${index + 1}`),
+      value: toScore(row[key], 0),
+    })),
+  })).filter(trend => trend.points.length);
+}
+
+function normalizeTrendObject(source) {
+  if (Array.isArray(source.points)) return [normalizeTrendSeries(source, 0)].filter(Boolean);
+  if (Array.isArray(source.items)) return normalizeTrendArray(source.items);
+  if (Array.isArray(source.timeline)) return normalizeTrendArray(source.timeline);
+  return Object.entries(source)
+    .filter(([, value]) => Array.isArray(value))
+    .map(([key, values]) => ({
+      key,
+      label: CHART_SCORE_LABELS[key] || key,
+      points: values.map((value, index) => {
+        if (value && typeof value === 'object') {
+          return {
+            label: clean(value.label || value.year || value.quarter || value.phase || value.period || `${index + 1}`),
+            value: toScore(value.value ?? value.score ?? value[key], 0),
+          };
+        }
+        return { label: String(index + 1), value: toScore(value, 0) };
+      }),
+    }))
+    .filter(trend => trend.points.length);
+}
+
+function normalizeTrendSeries(series, index = 0) {
+  if (!series || typeof series !== 'object') return null;
+  const key = clean(series.key || series.name || `trend_${index + 1}`);
+  const label = clean(series.label || CHART_SCORE_LABELS[key] || key);
+  const points = normalizeTrendPoints(series.points || [], key);
+  return points.length ? { key, label, points } : null;
+}
+
+function normalizeTrendPoints(points, metricKey = 'value') {
+  if (!Array.isArray(points)) return [];
+  return points.map((point, index) => {
+    if (point && typeof point === 'object') {
+      return {
+        label: clean(point.label || point.year || point.quarter || point.phase || point.period || point.date || point.time || `${index + 1}`),
+        value: toScore(point.value ?? point.score ?? point[metricKey], 0),
+      };
+    }
+    return { label: String(index + 1), value: toScore(point, 0) };
+  });
+}
+
+function isTimelineLikeArray(value) {
+  return Array.isArray(value) && value.some(item => {
+    if (!item || typeof item !== 'object') return false;
+    return Boolean(item.milestone || item.keyMilestones || item.milestones || item.focus || item.actions || item.keyActions || item.months || item.duration);
+  });
+}
+
+function pickFirstArray(...values) {
+  return values.find(Array.isArray);
+}
+
+function normalizeStringArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(item => clean(item)).filter(Boolean);
+  if (typeof value === 'string') return value.split(/[；;、,，\n]/).map(item => clean(item)).filter(Boolean);
+  return [];
 }
 
 function normalizeScoreObject(value) {
