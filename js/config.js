@@ -1,5 +1,5 @@
 window.GPN_CONFIG = {
-  BACKEND_API_BASE: 'http://121.40.60.59:8787',
+  BACKEND_API_BASE: '/ai-report-api',
   USE_MOCK: false
 };
 
